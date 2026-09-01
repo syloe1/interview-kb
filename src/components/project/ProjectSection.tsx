@@ -1,0 +1,2 @@
+interface ProjectSectionProps { eyebrow?: string; title: string; children: React.ReactNode }
+export function ProjectSection({ eyebrow, title, children }: ProjectSectionProps) { return <section className="border-t border-slate-200 pt-6"><div className="mb-4 flex items-baseline gap-3">{eyebrow && <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-[#6988aa]">{eyebrow}</span>}<h2 className="text-lg font-semibold text-slate-900">{title}</h2></div>{children}</section> }
