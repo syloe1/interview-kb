@@ -4,7 +4,7 @@ import type { NavIcon } from '../types'
 import { Breadcrumb } from '../components/common/Breadcrumb'
 import { EmptyState } from '../components/common/EmptyState'
 
-export type KnowledgeCategory = 'mq' | 'algorithms' | 'interview' | 'k8s' | 'linux'
+export type KnowledgeCategory = 'go' | 'cpp' | 'database' | 'mq' | 'algorithms' | 'interview' | 'k8s' | 'linux'
 
 interface KnowledgeCategoryProps {
   category: KnowledgeCategory

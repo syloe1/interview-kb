@@ -25,6 +25,9 @@ const markdownModules = import.meta.glob<string>('../content/knowledge/**/*.md',
 })
 
 const categoryLabels: Record<string, string> = {
+  go: 'Go',
+  cpp: 'C++',
+  database: 'Database',
   mq: 'MQ',
   algorithms: '算法题',
   interview: '面试',

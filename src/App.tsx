@@ -26,8 +26,11 @@ function App() {
           <Route path="/projects" element={<Projects />} />
           <Route path="/projects/:projectId" element={<Suspense fallback={<div className="py-16 text-center text-sm text-slate-400">Loading project notes...</div>}><ProjectDetail /></Suspense>} />
           <Route path="/go" element={<Go />} />
+          <Route path="/go/:noteId" element={<KnowledgeDetail category="go" />} />
           <Route path="/cpp" element={<Cpp />} />
+          <Route path="/cpp/:noteId" element={<KnowledgeDetail category="cpp" />} />
           <Route path="/database" element={<Database />} />
+          <Route path="/database/:noteId" element={<KnowledgeDetail category="database" />} />
           <Route path="/fundamentals" element={<Fundamentals />} />
           <Route path="/mq" element={<Mq />} />
           <Route path="/mq/:noteId" element={<KnowledgeDetail category="mq" />} />
