@@ -876,3 +876,345 @@ posix 线程 id：在内核同一个进程内有效，跨进程会重复。
 pthread 入口函数仅接收单个`void*`参数，因此需要把所有传递给子线程的数据打包到结构体。
 
 fork 只会复制调用 fork 的当前线程，子线程的 TLS 缓存会失效；需要注册`pthread_atfork`，重置`t-cached Tld`，修复缓存内容。
+
+epoll：fd 为核心，所有连接与事件要注册进去
+
+io‑uring：异步内核，内核对 fd/accept、recv、send、close 做系统调用，做提交
+
+生命周期：init、destory 析构
+
+SQ 提交队列：SQE 任务提交：
+`prep‑accept()`
+‑`recv()`
+‑`send()`
+‑`close`
+
+`io_uring` 构造异步 io 任务
+
+任务提交：`submit/submit‑and‑wait` 把任务发给内核执行
+
+CQE 事件收到：`peek‑cqe`、`cqe‑seen` 拿到执行结果，释放 CQE
+
+静态数据绑定：
+`sqe‑set‑data`
+`cqe‑get‑data` 绑定连接上下文，回调拿到该值
+`cqe‑get‑res`
+
+epoll：监听 fd，注册事件，事件来了调用`accept()`
+
+io‑uring：直接往内核提交`accept`任务，内核有新连接进来自动通知
+
+```
+struct io_uring {
+    // SQ提交队列
+    // CQ完成队列
+    // flage 主结构体
+    // rg-fd文件描述符
+    // feature 位掩码
+}
+```
+
+任务提交: submit / submit-and-wait把任务发给内核执行
+CQE事件收割: peek_cqe, cqe_seen 等IO执行结束， 释放CQ槽
+
+epoll: 监听fd，注册读事件，事件来了同步accept()
+io_uring：直接异步提交accept任务， 有私有连接进来 自动完成
+
+用户填充 SQE → SQ 环形队列 → submit 交给内核 →
+内核执行完 → 把 user_data，执行结果放 CQE 返回给用户态
+
+SQE 提交队列：一个 SQE 代表一条交给内核执行的异步 IO 任务
+
+CQE 完成队列，内核填充完 SQE 对应异步 IO 的生成，
+一手 CQE 放入 CQE 环形队列
+
+io‑uring_queue_init，ret=0 成功，SQ/CQE 初始化成功
+ret < 0，失败
+
+`get_sqe` 返回一个 `io_uring_sqe`
+
+prepare 往 `io_uring_get_sqe()` 里面：
+`io_uring_prep_accept`
+`‑recv`
+`‑send`
+`‑close`
+
+返回 SQE
+
+调用 wait，等待 `wait‑nr` 个 CQE 完成才解除阻塞
+`
+
+## io_uring 底层 Syscall
+
+`io_uring_queue_init()` 创建 SQ/CQ 环形缓冲区
+
+`io_uring_get_sqe()` 从 SQ 队列拿一个空闲 SQE
+
+`io_uring_prep_accept()` 往 SQE 中填充 `IORING_OP_ACCEPT`
+‑`recv()`         `IORING_OP_RECV`
+‑`send()`         `OP_SEND`
+‑`close()`         `OP_CLOSE`
+
+`io_uring_submit()` 把 SQ 队列的 SQE 一次性给内核
+
+`io_uring_submit_and_wait()`，提交 + 阻塞等待 nr CQE 完成
+
+`io_uring_queue_exit()` 释放 io_uring 的所有映射内存
+
+`io_uring_peek_cqe()` 非阻塞拿 CQ 里一个完成的条目
+
+`cqe_seen()` 将该 CQE 标记清楚，释放 CQE 槽位
+
+`sqe_set_data` 在 SQE 上挂一个 void\*，CQE 上能拿到指针（回调）
+`cqe_get_data` 取回之前挂的指针
+
+io_uring engine流程
+①`get_sqe()`拿到 sqe，`sqe_set_data`挂上上下文指针
+②`submit_and_wait()`，提交 SQ + 阻塞等 CQE
+③`peek_cqe()` 收到完成的 CQE
+④`cqe_get_data()`拿上下文指针；`cqe_get_res()`拿返回码
+⑤`cqe_seen`标记已处理完
+
+http_conn.cc 的 process
+
+**epoll 流程**
+`epoll‑wait()` 端口可读 → recv 读 http 请求 → 解析 → send 返回响应
+
+epoll
+↓
+`epoll‑wait`
+fd 可读
+↓
+`recv` 内核拷贝数据
+↓
+parse http 请求
+↓
+`epoll‑ctl()`写
+↓
+继续 `epoll‑wait`
+↓
+`writev(非阻塞)` 发送
+↓
+`epoll‑ctl(mod)`
+继续等待
+
+**io‑uring 流程**
+submit & `[recv]` → 内核异步读
+↓
+CQE 到达 → 接收请求数据
+↓
+parse http → 执行业务
+↓
+CQE 到达 → 发送完成
+↓
+submit SQ 提交 recv，循环
+
+epoll：`epoll_wait recv + read fd + writev + modfd`
+io‑uring → 1/2 B syscall
+
+epoll 内核用户态拷贝一次，io‑uring 零拷贝，更持久
+epoll 上下文切换多
+
+`AtomicInteger`封装 GCC 原子汇编，无锁线程安全类型
+
+`disable_copyable` 不可拷贝
+
+`volatile`：告诉编译器不要优化读写，每次都从内存读取
+
+`get()` 获取原值，`getAndAdd` 获取再加，
+`addAndGet`，`incrementAndGet`，自增 / 自减
+`decrementAndGet` 返回更新后值
+
+`old、increment、decrement` 底层的包装类
+
+```
+using AtomicInt32 = detail::AtomicIntegerT<int32_t>;
+```
+
+‑`sync` 内存屏障，`memory_order_seq_cst`
+硬件原子指令实现，无锁，支持 int32 /int64
+
+```
+class capacity("mutex") // 记录锁能力单元
+底层 pthread_mutex_t 互斥锁
+pthread_t holder tId; // 判断现在是不是有锁
+```
+
+`m_check`宏，进一步校验 pthread 线程调用返回值
+
+判断是否占有锁：
+`return holder_ == CurrentThread::tid();`
+
+`Acquire()` 编译期静态校验是否已经拿到锁
+`GUARDED_BY` 用来标记变量，读之前持有锁
+
+共享变量被多线程访问，要加锁
+
+`std::mutex(x)` `std::unique_lock<Mutex> me(x)`
+
+`std::lock_guard` 内定义构造函数，析构直接执行解锁
+
+`final class X;` 整个 X 类所有成员函数都能访问，
+类的私有、保护成员
+
+类的变量不能裸访问，必须搭配一把 mutex
+
+`pthread_cond_wait` 调用前外部必须持有 mutex
+
+1. 原子释放 mutex
+2. 线程挂起，进入等待队列
+3. 被`signal/broadcast`唤醒，原子获取 mutex
+
+`CountDownLatch` 倒计数门闩
+`wait()` 阻塞等待，count→0
+`countDown()` 计数器‑1，可以多线程配合
+`getCount()` 获取当前剩余计数值
+
+pthread 条件变量存在虚假唤醒
+
+`mutex+cond` 配对；`destory` 反初始化
+
+智能指针 `std::any`，不需要虚基类
+`ptr(const T&)` 左值版本
+`ptr(T&&)` 右值版本
+
+```
+inline void memzero(void *p, size_t n) {
+    memset(p, 0, n);
+}
+```
+
+// 内存清零
+
+```
+template<typename To, typename From>
+inline To implicit_cast(From const &f) {
+    return f;
+}
+```
+
+// 安全向上隐式转换
+
+C++ 基类指针可以自动隐式转为父类引用
+`static_cast` 添加 const 限定，安全，只编译时检查
+**禁止反向：int → long**
+
+```
+template<typename To, typename From>
+inline To down_cast(From* f) {
+    if (false)
+        implicit_cast<From*, To>(0); // 强制校验为父子类
+#if defined(DEBUG)
+    assert(f == nullptr || dynamic_cast<To>(f) != nullptr);
+#else
+    // release版本
+    return static_cast<To>(f);
+#endif
+}
+```
+
+// 基类指针 → 子类指针
+
+能注意 C++ 多态里面临的基本问题
+`MutexLock` RAII 对象，作用域内自动上锁、临界区结束自动解锁
+`mutable`：允许修改类内部标记了`mutable`的成员
+不要在构造函数中将`this`传给线程的函数
+对象未初始化完成，别的线程访问出现数据竞争结果
+
+构造完成后，另一个函数去执行这个回调
+
+作为数据成员的 mutex 不能保护析构
+
+对象关系：`composition、aggregation、association`
+
+**composition（组合）**：对象生命周期由唯一拥有者控制
+内存对象结构，成员是空指针
+
+`shared‑ptr` 共享智能指针
+引用计数为 0，对象被销毁
+
+`weak‑ptr`：要升级为 shared_ptr，如果还活着，返回`shared_ptr`
+
+`noncopyable` 基类工具类，禁止拷贝
+
+```
+class noncopyable {
+public:
+    noncopyable(const noncopyable&) = delete;
+    void operator=(const noncopyable&) = delete;
+protected:
+    // 不能实例化这个基类
+};
+```
+
+ccrpc：`str_view` 构造，指向已有内存，不拷贝，零开销
+
+```
+struct str_view {
+    const char* ptr;
+    size_t len;
+};
+```
+
+`__VA_ARGS__` 可变参数宏
+
+`json.hpp` 底层，json.hpp 做序列化反序列化
+
+`rpc‑protocol.hpp` 定义消息格式，请求 / 响应的 json 结构体
+
+`request`类，`parse_req`
+`build`请求`json`，`build`响应`json`
+`parse`响应`json`，`build_err json`
+
+`socket → connect → read/write → shutdown / close`
+  `fd:-1` 代表无效文件描述符
+
+`serveCodec` 服务端：读请求，写响应，解析，写应答，监听套接字
+`ClientCodec` 客户端：写请求，读响应。`write`向发送缓冲区写入，全部`consume`
+
+`unique_ptr<stream> stream_;`
+智能指针，持有文件描述符`stream`，自动管理。
+自动销毁，`stream`内存与 fd 生命周期，自动释放。
+
+注册服务：`services_.push_back(std::move(svc));`
+
+继承 `enable_shared_from_this<T>`，`this` 被托管，返回 `shared_ptr<T>`；
+`weak_ptr`引用计数不变，不增加引用计数；
+返回的`shared_ptr`已经给`this`指针计数；
+
+网络通信把它交给回调使用，防止野指针。
+`lock()`升级为`shared_ptr`；`reset()`释放。
+
+# Webbench vs ab vs wrk 对比表
+
+| 特性     | Webbench                         | ab                                       | wrk                                              |
+| -------- | -------------------------------- | ---------------------------------------- | ------------------------------------------------ | --------------------------- | --- |
+| 并发模型 | 多进程模型                       | 多进程/多线程                            | 多线程 + 事件驱动（epoll）                       |
+| 并发实现 | fork创建多个进程，进程切换开销大 | 多线程，同步阻塞IO，并发高时线程开销上涨 | 单进程多线程，每个线程独立事件循环，上下文开销低 |
+| 适用场景 | 简单HTTP压测，轻量入门           | Apache自带，快速简单接口压测             | 专业HTTP压测，高并发、复杂业务场景               |
+| 资源开销 | 内存、CPU开销高，大量进程占用多  | 中等，并发量大时线程多、系统调用频繁     | 资源利用率最优，同等压力占用更低                 |
+| 功能     | 仅基础HTTP GET                   | GET/POST，支持基础header、表单           | 支持Lua脚本，自定义请求、参数、请求逻辑          |
+| 统计能力 | 基础QPS、响应统计                | QPS、平均延迟，基础指标                  | 完整延迟分布 p50/p90/p99，详细时延统计           |
+| <!--     | 扩展性                           | 弱                                       | 弱                                               | 强，Lua脚本模拟复杂业务逻辑 | --> |
+
+性能 recv，kernel 内核临时页，一份拷贝数据 → copy‑to‑user →再释放临时页
+
+`io_uring_register_buffers`
+kernel 把这块内存有效锁定
+SQE 设置 `IORING_BUFFER_SELECT + buf_group`
+kernel 直接写入注册的 buffer，零拷贝
+
+CQE 的返回里面带 `IORING_BUFFER_SELECT` 返回本机 buffer
+`inodes[card]` 已经直接接收，使用，不用调用再返回值
+
+```Cpp
+iovec {
+void *iov_base 起始地址
+size_t iov_len; 内存字节长度
+}
+
+```
+
+用来描述用户内存的地址 + 长度
+
+`posix_memalign`：一次性分配整块连续大内存

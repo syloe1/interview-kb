@@ -167,3 +167,69 @@ Redisson 分布式锁：Lua 加锁、看门狗自动续期锁
   Master 执行 bgsave 生成 RDB，RDB 发给从，从加载 RDB。
   Master 把缓冲区命令补发从节点，同步完成。
   ‑增量：从节点带来 offset + 主节点 id。Master 补发 offset 之后的指令。
+
+encoding：
+
+`OBJ_ENCODING_INT`：存数值在 long 范围，直接数字存 ptr
+
+`OBJ_ENCODING_RAW`：字符串 >44 字节，redisObject 和 sds 分开两次内存分配
+
+`OBJ_ENCODING_EMBSTR`：字符串 ≤44 字节，embstr 一次性分配 redisObject + sds 连续内存
+
+sds：简单动态字符串，记录属性，O (1) 获取字符串长度
+存二进制数据，可以`\0`截断
+预分配冗余空间，减少扩容拷贝
+
+Redis 设置 expire /expireAt 不修改原 key，把 key + 过期时间存入过期字典。
+`dict[key] = 时间`，del 删除 key，同时删除数据字典 + 过期字典
+
+惰性删除：
+1° 已过期 → 删除 key + 返回 nil
+2° 未过期 → 正常返回数据
+
+定期删除：
+1° 随机挑选 20 个 key
+2° 过期 key 直接删除
+3°key 过期比例 >25%，继续再扫一轮
+
+内存淘汰：volatile‑lru 淘汰带过期的 key
+
+RDB：某一瞬间全内存数据二进制快照文件
+fork 子进程完成落地，主进程继续处理业务读写
+
+手动触发：`save` 主进程阻塞，主进程直接落地 RDB
+
+BGSAVE：父进程调用 fork 创建子进程，子进程生成 RDB 文件
+
+自动触发：`save 900 1`
+900 秒内，1 次修改自动 bgsave 生成 RDB
+
+Linux 写时复制：fork 父子共享一份物理内存，子进程做 RDB 落地；
+只有父进程修改的数据页被写入时，才复制对应的内存页
+
+fork：
+1° 复制页表，虚拟内存空间
+2° 父子进程虚拟地址映射到同一块物理内存
+所有内存页设为只读
+
+写时复制：COW
+子进程只负责写 RDB，全程只读物理内存，无内存复制开销
+父进程：收到指令修改 key 会触发 Copy
+1° 复制该页修改内存页到新物理内存
+23 次进程页表，映射新页面并修改数据
+
+AOF：
+`appendonly yes`
+开启 AOF，水涨写内存？
+记录时间的写命令，大文件积攒，大文件重写 Cow 复制
+
+AOF 持久化格式记录所有修改数据的命令，Redis 重放时逐条回放 AOF 恢复数据
+
+AOF 刷盘策略：
+
+- `appendfsync always`：每次写都刷盘
+- `appendfsync everysec`：每秒刷盘
+
+redis 的 pipeline 批量发送命令，减少往返时间
+
+今天 12:05
