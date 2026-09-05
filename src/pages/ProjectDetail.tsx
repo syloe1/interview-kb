@@ -147,7 +147,10 @@ export function ProjectDetail() {
   const { projectId = '' } = useParams()
   const normalizedProjectId = projectId.toLowerCase()
   const project = projects.find((item) => item.id.toLowerCase() === normalizedProjectId)
-  const markdownSource = markdownSources[normalizedProjectId]
+  const markdownKey = project?.fileName
+    ? project.fileName.replace(/\.md$/i, '').toLowerCase()
+    : normalizedProjectId
+  const markdownSource = project ? markdownSources[markdownKey] : undefined
   const [markdown, setMarkdown] = useState('')
   const [isLoading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')

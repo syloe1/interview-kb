@@ -1,7 +1,8 @@
 import type { NavigationItem } from '../types'
+import { projects } from './projects'
 
 export const navigationItems: NavigationItem[] = [
-  { label: 'Projects', path: '/projects', description: '我的项目经历、架构设计和面试问题', icon: 'folder', countLabel: '2 projects' },
+  { label: 'Projects', path: '/projects', description: '我的项目经历、架构设计和面试问题', icon: 'folder', countLabel: `${projects.length} projects` },
   { label: 'Go', path: '/go', description: 'Go 语言相关知识和面试问题', icon: 'terminal', countLabel: '1 note' },
   { label: 'C++', path: '/cpp', description: 'C++ 相关知识和面试问题', icon: 'braces', countLabel: '1 note' },
   { label: 'Database', path: '/database', description: 'MySQL、Redis、数据库原理等', icon: 'database', countLabel: '1 note' },

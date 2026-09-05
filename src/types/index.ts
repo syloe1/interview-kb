@@ -15,6 +15,7 @@ export interface Project {
   description: string
   tags: string[]
   path: string
+  fileName?: string
   status: 'active' | 'planned'
   updatedAt: string
   moduleCount: number
