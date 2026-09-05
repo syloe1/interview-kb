@@ -1,4 +1,43 @@
-可变参数模板
+## 内存序
+```Cpp
+多线程就是 acquire /release， 单线程是 relaxed 
+
+acquire是读操作， release是写操作
+relaxed是单线程使用， 不需要同步
+
+ //acquire读操作
+    //只要本次load读到别的线程release / store写入的指针， 该release store之前的所有写操作， 对当前线程全部可见
+ //relaxed对这个atomic变量本身的读写是原子的， CPU可以随意重排这个load前后的指令
+```
+## c++ 20 requires约束
+template <typename F>
+requires std::invocable<F>
+- `template<typename F>`：模板，F 代表你传进来的可调用对象类型（lambda、函数指针、std::function 都可以）
+- `requires std::invocable<F>`：**编译期约束**
+`std::invocable<F>` 判断：`F()` 能不能直接调用（无参调用）
+如果传进去一个不能直接调用的类型，编译直接报错，而不是等到运行期崩。
+
+auto enqueue(F &&f) -> std::future<std::invoke_result_t<F>>
+
+- `F&& f`：**万能引用**，可以接收左值、右值；配合后面`std::forward`完美转发，保留值类别
+- `std::invoke_result_t<F>`：编译期推导：调用`F()`之后的返回值类型
+例：`F是 [](){return 42;}` → `invoke_result_t` = `int`
+- 返回值：`std::future<ReturnType>`，future 用来等待任务、拿返回值
+
+```
+auto task = std::make_shared<std::packaged_task<ReturnType()>>(std::forward<F>(f));
+```
+
+- `std::packaged_task<ReturnType()>`：包装一个无参函数，函数执行完之后，**保存返回值到内部共享状态**，供 future 读取。
+- `std::forward<F>(f)`：完美转发，把外面传入的任务`f`（lambda / 函数）原封不动传给 packaged_task，保留左 / 右值属性。
+- `std::make_shared`：创建**shared_ptr**管理这个 packaged_task。
+`task` 的类型是 `std::shared_ptr<std::packaged_task<ReturnType()>>`。
+
+> 
+> 一句话：把用户传入的任务打包，放到堆上，用 shared_ptr 管理生命周期。
+
+
+## 可变参数模板
 
 ```cpp
 template<typename Middlewares>
@@ -14,6 +53,55 @@ Tag编译期根据URL算出数字， 实现高性能路由
 野指针： 未初始化的指针
 悬空指针： 指向已经销毁的对象或已经回收的地址
 
+## 1. std::unique_lockstd::mutex lock(mutex_);
+
+- 和 `lock_guard` 类似：构造时上锁。
+- **区别：unique_lock 支持 unlock/relock，可以交给 cv.wait 使用，lock_guard 不行。**
+条件变量 wait 必须传入`unique_lock`，因为 wait 内部需要临时释放锁。
+
+## 2. cv_.wait (lock, 谓词 lambda)
+
+`cv.wait(lock, pred)` 等价于下面这个循环（库内部帮你写好）：
+
+```Cpp
+while (!pred()) {
+    cv.wait(lock);
+}
+1. 持有锁进入 wait
+2. **自动调用 lock.unlock ()，释放 mutex，线程阻塞休眠**（别的线程可以 enqueue、操作队列）
+3. 收到 notify_one /notify_all 唤醒，线程醒来，**自动 lock.lock () 重新拿到锁**
+4. 执行谓词`pred()`
+   - pred 返回 false：继续回到 wait 休眠（这就是处理**虚假唤醒**）
+   - pred 返回 true：wait 函数返回，继续往下跑代码
+```
+
+1. `mutable std::shared_mutex mutex_`
+
+- `std::shared_mutex`：读写锁。两种锁模式
+  - **shared 共享锁**：多个读线程可以同时持有（读 - 读并行）
+  - **exclusive 独占锁**：写线程持有；持有独占锁时，其他读、写全部阻塞
+
+
+  - **放在循环里重试 → 优先用 `compare_exchange_weak`**：性能更好，就算假性失败，循环重试即可。无锁栈 / 链表 push 几乎全是 weak。
+- **不在循环里，只尝试一次 CAS → 必须用 `compare_exchange_strong`**：不能接受假性失败。
+
+
+- CAS：无锁，并发高的时候性能好；
+- mutex 互斥锁：有锁，并发会串行排队，简单好写。
+
+```Cpp
+std::vector<std::thread> threads;
+int thread_num = 50;
+// 循环1：创建50个子线程
+for (int i = 0; i < thread_num; ++i)
+//std::thread( 函数名, 参数1, 参数2, ... )
+  threads.push_back(std::thread(append_node, i));
+
+// 循环2：等待全部子线程结束
+for (auto &th : threads)
+  th.join();
+
+```
 ## 多线程
 
 ```Cpp
@@ -44,6 +132,53 @@ this_thread::get_id()
 ## 进程，
 
 独立地址空间， 资源隔离， 线程共享地址空间
+
+## `template<>` 是空模板参数列表，代表全特化
+模板全特化的威力：**对某一个特定类型，重写整个类**。
+```Cpp
+
+// 2. 类模板
+template <typename T>
+class Container
+{
+private:
+  T data;
+
+public:
+  Container(T value) : data(value) {}
+
+  T get_data() const { return data; }
+
+  void set_data(T value) { data = value; }
+};
+
+// 3. 模板特化 - 为std::string类型提供特殊实现
+template <>
+class Container<std::string>
+{
+private:
+  std::string data;
+
+public:
+  Container(std::string value) : data(value) {}
+
+  std::string get_data() const { return data; }
+
+  void set_data(std::string value) { data = value; }
+
+  // 字符串类型特有的方法
+  std::size_t length() const { return data.length(); }
+};
+
+
+- `typename... Args`：**参数包**，可以打包任意数量、同调用推导体系的类型
+- `Args... args`：`args` 是一包参数；`args...` 叫**解包**，把包里参数展开传给下一次 sum
+
+**SFINAE：模板参数替换失败 ≠ 编译报错，只是把这个候选函数删掉，继续尝试匹配别的重载。**
+`std::enable_if` 是实现 SFINAE 最经典的工具。
+```
+
+`inline` 主要意图就是建议编译器：把函数体直接嵌入到调用位置，省去函数调用压栈、跳转、返回的开销
 
 ## IPC
 
@@ -1218,3 +1353,957 @@ size_t iov_len; 内存字节长度
 用来描述用户内存的地址 + 长度
 
 `posix_memalign`：一次性分配整块连续大内存
+
+
+Const &&  拷贝赋值重载的固定参数
+`operator=` 赋值运算符
+
+## RAII 类绝不能浅拷贝
+>   两个对象有同一块堆指针，出作用域两个析构都会执行，造成重复释放内存
+
+## 内存对齐：
+`__attribute__((aligned))` 控制对齐
+`__attribute__((packed))` 取消对齐
+`__attribute__((aligned(8)))` **强制 8 字节对齐**。
+
+构造函数不能上 virtual
+
+虚表 vptr 构造阶段才创建
+
+1. 只能子类存内存
+2. 调用基类构造函数
+3. 基类构造执行完毕，到子类构造点，
+把 vptr 切指向子类虚表
+
+`so‑reuse` 多线程 tpl ABI 相同约束
+内存虚表重载约束
+
+## 面试提炼
+
+1. **构造函数不能是虚函数**：虚表指针 vptr 是在构造函数执行过程中才被初始化。构造对象的时候虚表还没准备好，所以不能 virtual。
+2. 执行顺序：
+①先分配子类内存
+②调用父类构造函数，此时 vptr 指向**基类虚表**
+③父类构造完成，进入子类构造函数，编译器改写 vptr，切换为**子类虚表**
+
+> 经典坑：**基类构造函数里面调用虚函数，执行的是基类版本，不会多态到子类**，因为此时 vptr 还没切到子类。
+
+虚函数：通过父类指针调用子类实现
+构造：对象迟诞生，在堆上开辟内存
+
+`new / delete` 是 C++ 语法
+`malloc / free` 是 C 库函数
+
+`new`：`malloc`分配内存，**构造函数执行初始化**
+`delete`：调用析构，清理并且释放堆内存, free释放内存
+
+软件三层：
+需求调研 → 架构设计 → 编码定位 → 测试校验 → 部署上线
+
+`volatile`：每次读写都触发访问真实内存，**不能用寄存器缓存副本**
+同一主机同一IP + 端口， 同一时刻只能和一个socket绑定
+
+`so‑reuseaddr` 地址复用，`time‑wait` 新连接
+开启 bind 端口复用
+
+##  浅拷贝 vs 深拷贝
+- 浅拷贝: 只复制地址， 堆资源共享， 会双重释放崩溃
+- 深拷贝: 重新分配堆内存， 数据独立
+
+Linux 查看 CPU、进程：`nproc`
+看服务 IP 地址：`ip addr`
+看内存大小：`free -h`
+
+根据进程名查 pid
+`pprep .服务`（
+
+拥塞窗口，整条网络链路
+粘包、拆包数据上报
+
+OOM 内存耗尽，
+没有足够内存给新进程，
+触发 OOM killer，挑选进程杀死释放内存。
+
+---
+
+### epoll
+
+LT：**水平触发**，缓冲区有数据就持续通知，不读完就会反复通知
+
+ET：**边缘触发**，状态变化才通知一次，一次性读完，搭配非阻塞 IO
+
+> 
+> 右侧手写数字是手写 epoll 示例。
+
+
+创建 `lock_guard` 的调用
+```Cpp
+std::mutex mtx;
+lock_guard<std::mutex> lock(mtx)
+`mutex.lock()` 加锁
+析构调用 `mutex.unlock();`
+```
+
+
+`select` 底层 `fd‑set` 位图，1024 位
+
+1. 用户态拷贝到内核
+2. 内核遍历 1024 个 fd
+3 内核将 fd 存在修改到位图，拷贝回用户态
+
+poll 底层：`struct pollfd`数组，**去掉 1024 限制**
+
+epoll 底层：**红黑树**
+红黑树保存注册的 fd
+就绪链表：只存放当前就绪的 fd
+
+1. `epoll_create` 内核创建 epoll 实例，返回 epollfd
+2. `epoll_ctl(ADD/MOD/DEL)`，注册就绪 IO
+
+## 面试提炼
+
+1. `std::lock_guard` RAII 锁：构造自动 lock，析构自动 unlock，异常场景也会释放锁。
+2. select：使用位图 fd_set，**最大只能 1024 个 fd**；每次调用都要用户↔内核来回拷贝全部 fd 集合，内核轮询扫描全部 fd。
+3. poll：用`struct pollfd`数组，解除 1024 上限，但依然每次全部拷贝、全部遍历。
+4. epoll：
+
+- `epoll_create`：内核创建 epoll 对象，返回 epollfd
+- `epoll_ctl`：增删改要监听的 fd，fd 存放在**红黑树**
+- 内核只把**已经就绪的 fd**放到就绪链表，用户态只拿就绪事件，不需要遍历全部 fd，高并发性能好。
+
+dpdk 高性能网络开发库，让用户态直接收发包，绕过内核协议栈
+
+传统 Linux：应用→内核→网卡（多次拷贝， 系统调用、中断，上下文切换）
+dpdk：**应用→网卡（零拷贝、轮询，无中断）**
+
+用户态轮询驱动 PMD，不生成内核驱动，用 UIO/VFIO 把网卡映射到用户空间
+CPU 主动轮询网卡，网卡PX/RX 队列，替代中断，消除上下文切换开销
+大页内存：
+由 2MB/1GB 连续大页，减少 TLB miss，提升地址转换效率
+数据包mbuf 从预分配内存池，避免动态分配内存碎片
+
+零拷贝：
+网卡 DMA 直接把包写到用户态内存，应用直接访问网卡内存， 无内核拷贝
+## 多核亲和
+  每个核绑定一个任务， 线程不切换
+
+DMA：直接内存访问
+硬件自己读写内存，不用 CPU 插手
+普通：网卡收到数据→CPU 一点点拷贝到内存
+DMA：网卡自带 DMA 控制器，网卡收到包, 硬件直接把数据丢进内存
+
+## 面试提炼
+
+1. **DPDK 核心：绕过 Linux 内核协议栈，用户态直接操作网卡**，PMD 轮询驱动，摒弃中断，降低上下文切换开销。
+2. **大页内存**：2M/1GB 大页，减少 TLB 缺失，提升虚拟地址转换速度。
+3. **mbuf**：预先分配内存缓冲区，管理网络数据包，规避动态分配内存碎片。
+4. **DMA 直接内存访问**：网卡硬件直接读写内存，不消耗 CPU 做数据拷贝，实现零拷贝。
+5. VFIO/UIO：把网卡硬件寄存器映射到用户态，用户程序可以直接操作网卡硬件。
+
+UIO：用户态 IO 框架，内核留一个驱动模块，设备初始化，把网卡寄存器 / 内存映射到用户态
+
+vf‑io：dpdk 自带的
+网卡 DMA 可写整个内存，不安全
+VF‑IO 虚拟化的 IO，
+IOMMU 保护，网卡只能访问分配给它的那部分内存
+
+RDMA：远程直接内存访问
+ 本地网卡DMA读app内存 -> 网络传输 -> 对端DMA写入APP内存
+ 无 CPU 拷贝， 无内核协议栈处理，访问内存直接交互
+
+RoCE：以太网承载 RDMA
+1. 数据，不经过内核缓冲区， OS不对报文解析转发
+2. io‑uring：linux 自带的异步 IO 框架，内核提交 dpdk，不用绑定网卡
+3. DPSK: 绕开内存，极致快，复杂
+4. io‑uring：存在内核，用环形队列异步 IO。 SQ提交队列， 用户态-> 内核。 CQ: 完成队列，内核态—> 用户态
+
+io‑uring 5 种主要队列
+SQ：提交队列
+CQ：完成队列
+同一个用户，两个队列
+
+## 面试要点
+
+1. **UIO**：旧版 DPDK 方案，内核驱动将网卡寄存器映射到用户空间；没有 IOMMU 防护，网卡 DMA 可以访问全部内存，存在安全风险。
+2. **VF‑IO**：DPDK 推荐新方案，依托 IOMMU 硬件隔离，网卡 DMA 只能访问分配给它的内存，安全性高。
+3. **RDMA 远程直接内存访问**：网卡之间直接读写内存，**CPU 不参与拷贝**，数据绕过内核协议栈。RoCE 协议：RDMA 跑在以太网上面。
+4. **io‑uring**：Linux 原生异步 IO，内核维护环形队列；应用提交任务，内核完成回调；不需要像 DPDK 那样用户态轮询。
+
+> 
+> 区分：
+> DPDK：**用户态轮询**，绕内核；
+> io‑uring：**内核异步 IO**，仍然走内核。
+
+
+SPDK：用户态 + 轮询 + 零拷贝，高性能存储开发包，
+CPU死循环轮询， NVME完成队列。
+
+为什么 dpdk 比 socket 快？
+`socket`：应用 → 内核协议栈 → DMA 拷贝，两次拷贝
+`socket`收发，频繁系统调用，用户态内核态切换开销
+dpdk：线程绑定CPU核心， 全程不切换
+
+`mbuf`：dpdk 数据包结构体，一个 mbuf 对应一个网络报文
+内存池申请一大块连续大页内存，切出很多 mbuf
+mbuf 内存：**物理连续、大页内存**
+mbuf 用完放回池中
+
+内核每次收发：
+- `malloc`一块内存
+- 拷贝数据
+- 处理完`free`释放
+- 频繁分配。
+
+rte‑ring：dpdk 的无锁环形队列
+- 多核传输不加锁
+
+dpdk rte‑ring：
+- 全程无锁，`lock‑free`
+- 用 CAS 原子操作完成队列修改
+
+## CAS：CPU 硬件指令，实现无锁原子操作
+rte‑ring：环形数组 + 头尾指针
+`head`：队头
+`tail`：队尾
+
+#### 入队：
+-1. 移动指针 2. 放数据
+#### 出队：
+1. 移动指针 2. 取数据
+
+用户态操作， 无系统调用
+
+DPDK: 单机告诉以太网收发包
+RDMA：跨主机内存直接读写
+
+## C++ std::atomic 内存序
+
+1. `memory_order_relaxed`
+只保证原子性，**不做内存顺序约束**，允许指令重排
+2. `memory_order_acquire` 【lock】
+读操作，**后面的指令不能排到这一条前面**
+3. `memory_order_release` 【unlock】
+写操作，**前面指令不能排到这一条后面**
+4. `memory_order_acq_rel`
+读‑写都用，**前后都屏障**（acquire + release）
+5. `memory_order_seq_cst`
+全屏障，读、写都可见，**最强内存序，默认选项**
+
+---
+
+### 面试速记
+
+- `relaxed`：只管原子，随便乱序。
+- `acquire`：锁获取，**后面代码不许跑到 acquire 前面**。
+- `release`：锁释放，**前面代码不许跑到 release 后面**。
+- `acq_rel`：同时拥有 acquire+release 双向屏障。
+- `seq_cst`：全局总序，std::atomic**默认内存序**，开销最大。
+
+> 
+> 经典配对：
+> 读端用 `acquire`，写端用 `release`，实现无锁同步。
+
+C++ 内存模型：多线程下，线程对内存的操作，什么时候能被其他线程看到
+乱序的指令会被其他线程看到。
+**原子特性：原子性、可见性、有序性**
+
+原子操作：一个 CPU 指令完成的，不可打断。
+无锁编程（用原子操作，内存屏障 memory_order）
+
+CAS 很强大，会遇到 ABA 问题（lock‑free 这种）
+
+Linux 把一切皆文件，所有 IO 都套在文件句柄：
+用户态 → 系统调用 → 内核 VFS → 具体
+文件系统 → 硬件
+
+所有 IO 分两步：
+
+1. 数据拷贝：内核把数据读到内核缓冲区
+2. 数据拷贝：内核缓冲区 → 用户缓冲区
+
+## OS 是一组 API
+- 取连续指令 boot block
+- 不学技能，谈不上品味
+- 环境和口闻，会影响人的判断
+
+## VMM 模拟所有特权指令、中断、包括对页表修改
+
+- 链接和加载: execve 的行为
+- 加载 ELF 文件
+- 设置进程的栈的状态
+- 加上库函数的行为
+
+从需求出发的架构验证。
+阅读手册，找寻 API
+写代码理解 syscall，弄清楚为什么
+这样做设计
+不要害怕 “不好”，大胆去做，并且持续改进
+Just for os，一切伟大都从零开始
+syscall 可能会很久
+
+## 共享内存：同一片地址空间
+
+增加一个状态机（thread），有独立的栈，共享全局变量
+并发（串行） 并行
+
+`spawn(fn)`：创建进入函数,是fn的线程，并且立即开始执行
+`join()`：等待所有运行线程的返回
+
+
+1. **信号量 sem**
+
+- `sem_init`：初始化信号量初值
+- `sem_wait`(P)：`‑1`，资源不足阻塞
+- `sem_post`(V)：`+1`，唤醒等待线程
+- `sem_destroy`：释放资源
+
+2. **pthread_mutex 互斥锁**
+
+- `pthread_mutex_init`：初始化
+- `pthread_mutex_lock`：加锁，拿不到就阻塞
+- `pthread_mutex_unlock`：解锁
+- `pthread_mutex_destroy`：销毁锁
+
+3. **条件变量 pthread_cond**
+
+- `pthread_cond_init`：初始化条件变量
+- `pthread_cond_wait(cond, mutex)`：**释放 mutex，阻塞等待；被唤醒后重新获取 mutex**
+
+> 
+> 考点：`cond_wait`必须传入 mutex，内部会先解锁再休眠，唤醒后重新加锁。
+
+```Cpp
+int pthread_cond_timedwait(pthread_cond_t *cond, pthread_mutex_t *mutex,
+const struct timespec *abstime);
+```
+
+带超时等待
+
+`int pthread_cond_signal(pthread_cond_t *cond);` 唤醒**一个**等待线程
+
+`int pthread_cond_broadcast(pthread_cond_t *cond);` 唤醒**所有**等待线程
+
+`int pthread_cond_destroy(pthread_cond_t *cond);` 销毁条件变量资源
+
+> 
+> 成功返回 0，失败返回错误码
+
+---
+
+**RAII 自动管理生命周期**
+构造函数自动调用`init`函数，析构调用`destroy`函数。
+
+封装：把 C 结构体封装进类中，成员私有，外部不能修改底层类。对外暴露干净的接口，屏蔽系统调用。
+
+同步原语**不能拷贝**，禁用拷贝构造、拷贝赋值。
+
+```
+<stdexcept> std::runtime_error(错误信息)
+<cerrno> errno 非0做返回判断
+```
+
+拷贝构造申请资源，拷贝赋值释放资源
+## P操作申请资源， V操作释放资源2
+```Cpp
+template<typename T>
+class NonCopyableResource {
+private:
+    NonCopyableResource() = delete;
+    NonCopyableResource(const NonCopyableResource&) = delete;
+    NonCopyableResource& operator=(const NonCopyableResource&) = delete;
+};
+```
+
+`sem_trywait(sem_t *sem);`
+
+> 
+> 资源‑1，返回 true
+> 资源为 0，不阻塞，errno=EAGAIN，返回 false
+> 其他错误异常
+
+## 高并发轮询，不让线程阻塞休眠
+
+`pthread_mutex_trylock`
+
+> 
+> 锁空闲上锁返回 true
+> 锁被占用，返回 EAGAIN，函数返回 false
+> 其他错误异常
+
+不加`explicit`会**隐式类型转换**
+`explicit`禁止单参数构造
+
+`mutex`保护队列共享变量，保证同一时间只有一个线程读写队列
+
+`cond`条件变量等待：上锁→解锁，队列空消费者阻塞；队列满生产者阻塞
+
+---
+
+`block_queue.h`
+阻塞队列设计：读写都要先`lock()`
+共享数据多线程并发访问必须加锁，防止数据竞争错乱
+
+阻塞队列：生产者、消费者模型
+生产者`push`向队列放数据，队列满就插入失败，切换为条件等待线程
+
+消费者`pop`从队列取数据，队列为空时，`cond_wait()`阻塞休眠，有数据再唤醒返回
+
+**必须用 while 判断，不能 if，防止虚假唤醒**，操作系统可能无理由唤醒等待线程
+
+## 队列给异步日志模块使用，后台日志线程循环 pop 落盘，消除 IO 阻塞
+
+懒汉单例：第一次调用`get_instance`才创建日志对象
+
+```Cpp
+static Log* get_instance() {
+    static Log instance;
+    return &instance;
+}
+```
+
+… 驻留栈，对日志类封装
+
+`##__VA_ARGS__` GCC 扩展可变参数宏支持，不定长参数
+
+`write_log(level, format, ...)` 数据写到文件缓冲区
+`flush`方法用`fflush(FILE*)`把缓冲区缓存的日志刷 OS 内核缓冲区
+
+`async_write_log()`后台日志线程的主循环函数，
+循环从消息队列取日志写文件
+私有类，只有日志类可用
+
+C++ 静态成员函数可以访问类所有私有成员，
+## 析构写成虚析构，为后续扩展预留
+
+pthread 线程函数签名要求
+`void* (*)(void *)`
+static 静态成员函数没有`this`指针，符合线程函数签名
+
+`push_back(对象)`：先构造临时对象，再拷贝 / 移动到容器
+`emplace_back`：直接在容器内存原地构造对象，消除临时，性能更好
+
+```Cpp
+using namespace muduo
+```
+不会自动展开命名空间`muduo::net/`,`muduo::base`.
+
+
+
+## C++17
+
+`move(x)`不会移动任何数据，仅仅是把 x 转为右值引用，触发移动构造 / 赋值
+
+**完美转发 forward**
+模板参数 T 会发生引用折叠，forward 传入左值返回左值引用， 传入右值返回右值引用
+
+```Cpp
+template<typename T>
+void wrapper(T&& arg) {
+    func(std::forward<T>(arg));
+}
+```
+
+RAII 是资源获取即初始化，资源在构造函数里初始化，出栈时析构函数自动释放
+
+move 不移动数据，强制把变量转换为右值引用 T&&
+forward 用于模板万能引用转发
+
+## unique‑ptr 为什么不能拷贝？
+- 设计就要独占所有权。如果允许拷贝，两个指针指向同一块内存，double free 崩溃
+
+## shared‑ptr 分为两组，一个 new 对象，一个控制块
+>  控制块：
+   - 强引用计数
+   - 弱引用计数
+
+
+## 普通 `shared_ptr<T>(new T())` 两次分配
+`new T`分配业务对象
+内部再`new`分配控制块
+
+`make_shared`一次内存分配
+强引用计数为 0，销毁业务对象，控制块不释放
+弱引用也为 0，释放控制块
+
+**循环引用：两个对象互相持有 shared_ptr**
+强计数无法归 0
+解法：一个使用`weak_ptr`
+
+`deque`由多个固定大小的 buffer 地址 +
+一张索引映射表
+deque 头尾操作 O (1)
+
+## `weak_ptr`只记录控制块地址
+指向的对象随时可能被销毁
+执行`lock()`，会判定指针是否有效
+
+`vector`一段连续堆内存数组
+
+- `size`：当前存了多少个
+- `capacity`：分配的总容量
+
+## 扩容：
+
+1. 分配一块更大的连续新内存
+2. 把旧数组拷贝 / 移动过来
+3. 释放旧内存
+4. 内部指针指向新内存， 更新capacity
+
+### 如何避免扩容？
+`vec.reserve(N)`一次性分配足够容量
+
+`unordered_map` 哈希表
+
+1. key → 下标
+2. 桶数组 vector（链表）
+O (1) 增删查找
+key 不需要比较，只需要 hash + 相等判断
+
+## 互斥同步：`mutex + condition_variable`
+多线程共享资源互斥， 线程等待唤醒
+
+## 异步：`async + future`， 线程函数获取返回值，异常传递
+ 线程获取返回值（异常传递）
+
+无锁并发：`atomic` 简单变量不加锁安全读写
+
+1. `std::launch::async`
+强制创建**新线程**来运行任务；
+任务在独立子线程执行。
+2. `std::launch::deferred`
+不创建任何线程，任务被**延迟**；
+只有当你调用 `future.get()` / `future.wait()` 的那一刻，**调用 get 的这个线程**直接执行任务函数。
+
+`map`红黑树，每个节点存`<k,v>`
+按 key 从小到大排序
+
+`unique_lock<mutex> w(mtx, defer_lock)`
+支持手动 unlock，延迟加锁
+
+1° 加锁 2°`cv.wait()`释放锁，阻塞休眠
+3° 被唤醒了夺回锁，执行业务，再解锁
+
+`cv.notify_one()` 唤醒一个
+`cv.notify_all()` 唤醒全部等待线程
+
+`thread`无法直接获取函数返回值
+`future/promise/async` 用于线程间传递信息
+
+
+`future.get()`阻塞，获取返回值，**只能调用一次**
+`wait()`仅等待完成，不获取结果
+`wait_for()`限时等待，超时返回 `future_status::timeout`
+
+`promise` 子线程写入结果，`future`主线程读取结果
+
+`mutex` 操作系统内核态阻塞，上下文切换
+
+## `atomic`是 CPU 硬件指令 CAS，纯用户态开销小
+`store`原子写，`load`原子读取
+`fetch_add(1)`原子 + 1，`fetch_sub(1)`原子‑2
+
+## 虚假唤醒：OS 通知，条件变量唤醒的时候条件不满足
+```Cpp
+cv.wait(lock, pred)
+while (!cpred) {
+    cv.wait(lock);
+}
+```   
+
+
+## 订单锁扣减库存
+
+1° 拦截用户，获取 Redis 分布式锁
+2° 数据库扣减：
+ 构建订单 + 检查库存
+
+```
+// 减库存 update set stock = stock -1 where stock > 1;
+`rows = 0` 回滚事务
+创建订单，锁定的库存
+```
+
+
+
+## 防超卖：MySQL 行级判断 where stock > 条件更新
+
+### 延迟订单取消
+  1. `publish`
+  2. 到死信交换机
+  3. 消息过期转发到死信队列，订单超时取消，归还库存
+
+### Lua 原子扣库存？
+
+检查用户是否购买，检查库存，扣库存，创建购买
+
+Lua 脚本在 Redis 单线程执行
+
+### 下单请求
+
+```
+加锁，检查库存
+├─Lua原子扣库存
+├─-1 已过期
+├─0 空位置
+└─1 扣成功
+```
+
+发 MQ 消息异步创建订单
+
+## Redis 布隆过滤器接收 id token，避免同一个用户不能重复请求
+Lua 脚本有 `purchasekey`，锁失效也能截住已购用户
+
+kafka 等副本成功确认才会成功，同步发送
+消息重发，重试 3 次，每次隔 200ms
+
+## 消息确认机制：
+- kafka先处理消息，成功后 `CommitMessages`
+- RabbitMQ：成功 Ack，失败消息持久化
+
+## 从HTTP 层 Handler 拦截上游 Trace 信息
+创建当前 span
+
+MQ 层把 Trace 的文本入 MQ 的消息头
+
+消费者从消息头恢复 Trace 上下文
+
+worker 定时轮转 outbox 表 → 发消息给 kafka
+持续监听 kafka → 同时ES索引
+监听RabbitMQ秒杀队列->异步创建秒杀记录
+
+监听 binlog MQ 消息队列 → 消息创建最终的业务记录
+
+## 订单 id 唯一索引，一个订单只有一条支付记录
+
+ 数据库行锁，防止并发修改
+
+
+ ## 堆：OS 提供的动态内存区域，malloc/free 直接操作。
+自由存储区：通过 new/delete 分配内存和释放内存
+new 申请的内存一定属于自由存储区。
+
+普通继承：父类成员放在子类内存前面，不改变内存布局。
+类带虚函数，对象头部增加 vptr，指向类虚函数表。
+
+```Cpp
+Base* p = new Son(); p->f();
+```
+
+取 p 指向对象首地址取 vptr，
+去表拿到 Son::f 的真实地址
+用 this 调用子类函数，运行时才确定函数。
+## 浅拷贝:只拷贝栈上变量，堆内存共用一块内存。
+深拷贝：栈拷贝，新开辟堆内存复制内容，两份内存独立。
+
+## 指针 vs 引用
+指针：存目标内存地址，拥有内存空间
+引用：变量别名，底层是指针
+引用一旦绑定，终身不能改。
+
+大端：网络字节序，高字节、有效字节存低地址，低字节存高地址。
+/*
+0x12345678
+大端： 将高有效字节放在内存的低地址处。
+12
+34
+56
+78
+*/
+小端：将高有效字节放在内存的低地址处。
+
+网络接口层，只暴露同步，异步接口，不依赖底层文件。
+
+## 异步回调：
+
+```Cpp
+using HttpCallback = std::function<void(const HttpRequest&,HttpResponse&)>;
+```
+
+如何支持切换不同网络库？所有底层网络库都实现接口。
+
+
+回调式：`async_request`
+同步等待异步：`std::future`
+
+C++20 协程 `co_await`
+`coroutine_handle<HttpRes>`
+`co_request(const HttpRequest req);`
+
+Callback：事件驱动，不阻塞
+Future：同步阻塞处理结果
+## syscall vs 库函数
+- 系统调用：用户程序向 OS 内核发起请求的标准接口， 用户态进入内核态的正规通道
+- 库函数，用户态封装，不一定触发系统调用。
+## lambda
+`[this]`捕获对象指针，lambda 内部通过指针访问成员，共享对象。
+`[*this]`捕获当前对象副本，把 *this 拷贝一份存 lambda。
+
+普通 lambda 编译期被翻译成一个匿名仿函数类
+不加`mutable`编译器生成`operator() const`
+去掉 const，允许修改捕获的值拷贝成员
+
+
+
+数字证书：服务器公钥 + 域名 +CA + 有效期，实现 net 的身份证
+CPU 为了提升性能，会打乱代码执行顺序，编译器重排
+
+CPU 硬件：内部多条单元并行，访存指令乱序读写。
+
+- `relaxed` 宽松序
+- `release` 释放
+- `acquire` 获取
+- `acq‑rel` 获取释放
+- `seq‑cst` 顺序一致
+
+```
+fetch_add(memory_order_relaxed)
+store(memory_order_release)
+load(memory_order_acquire)
+```
+
+`seq‑cst`顺序一致，CPU 屏障开销最大
+
+
+`[&] / [this]` 捕获指针
+`[=] / [*this]` 值捕获
+
+std::move是强制类型转换， 把任意左值 -> 右值引用T&& 
+真正自由转移是移动构造完成的。 
+
+## 左值：有名字，能取地址的变量
+- `std::string s = "abc"`
+
+## 右值：临时变量，不能取地址
+- `std::string("123")` 纯临时
+
+模板 编译期多态
+模板对每种类型，生成一份独立代码
+
+虚函数：运行期多态，动态多态
+对象带虚指针，指向共同的虚表，运行查表执行
+
+右值引用绑定到临时对象。
+
+`std::string t1 = std::string("xxx")`
+拷贝构造：`string(const std::string&)` 左值引用
+移动构造：`string(string&&)` 右值引用
+**转移指针，不拷贝内存**
+
+`noexcept` 给编译器，函数，绝不抛出任何异常。
+移动构造标记 `noexcept`，编译器使用拷贝构造。
+`move`后对象可以安全析构，可被重新赋值。
+
+移动赋值：`T&& noexcept` 转移内部堆指针，O (1)
+
+`unordered‑map` 拉链法哈希表解决哈希冲突，同一桶中冲突的键值对挂在单链表上
+
+## 模板是不可编译代码，只在一套代码生成规则。
+基类构造处，子类还未构造，虚表指针指向基类虚表。
+基类析构执行，销毁子类，虚指针切回基类虚表。
+
+
+虚表：编译器编译生成一个静态虚表
+一张类对应一个表
+所有基类派生类不同表
+
+##  静态绑定 vs 动态绑定
+
+> 静态绑定：编译器直接调用函数地址，运行时无开销，无法运行多态
+> 动态绑定：仅虚函数.运行时通过对象 vptr 找到 vtable，虚表
+获取真实函数地址，再调用
+
+基类析构为 virtual，动态析构，生效调用
+`Son::~Son()` 再 `Base::~Base()`
+
+基类析构非 virtual，直接执行，
+反执行 `Base::~Base()`，内存泄漏
+
+```
+
+`nullptr` 关键字
+
+野指针：指针存了一块非法，不受管控虚拟内存地址。
+
+1. 指针未初始化
+2. 指向内存已经释放
+3. 指针越界
+
+RAII：资源获取即初始化，资源申请写在构造，释放写在析构函数
+构造中加锁，析构中解锁。
+
+```Cpp
+R(const R&) = delete; // 禁止拷贝
+```
+
+
+
+
+## fork：复制当前进程，生成独立子进程
+写时复制 COW
+
+## vfork 子进程共享父进程地址空间，父进程阻塞挂起， 直到子进程调用exec + exit
+
+- fork: 子进程复制父虚拟内存，COW
+- vfork：父子共用同一份地址空间
+
+
+## #define NULL 0 // 宏，仅仅做预处理替换0
+
+## STL 容器：
+- 序列式容器：底层线性结构 vector、deque、list、array
+- 关联式容器：底层红黑树 map、set
+- 无序关联容器：哈希，unordered_map、unordered_set
+- 容器适配器：stack、queue 基于 deque，priority_queue，基于 vector
+
+## 互斥锁：普通互斥完全互斥，同时只允许一个线程进入临界区。
+
+
+## struct 和 class：
+- struct 默认成员公有
+- class 默认成员私有
+
+- struct 继承，默认 public
+- class 继承默认 private
+
+数据成员用 struct，对象封装 class
+
+派生 struct，默认 public 继承
+派生 class，默认 private 继承
+
+
+静态全局 / 静态局部内存不变 = 静态存储区
+## 静态类变量，整个程序运行期间一直存在，进程结束才回收内存。
+
+函数重载：同名不同参
+
+重写：子类继承父类，重新改写父类的 virtual 虚函数
+
+## 面向对象特征：封装、继承、多态
+
+COW 写时复制：多个对象共享同一份底层数据，只有当某一方要修改数据时，才真正拷贝一份副本。只读全程不拷贝。
+
+## 左值，C++ 的 string
+## 浅拷贝
+
+只复制**指针**，不会复制底层数据；多个对象共用同一块内存，一般配合引用计数管理。
+
+> 
+> 风险：任意一个对象修改内存，其他对象全部受影响；析构时容易重复释放内存。
+
+## 2. 深拷贝
+
+完整拷贝**内存里的数据**，新对象拥有独立内存空间。
+两个对象内存相互隔离，修改其中一个不会影响另一个，内存各自释放。
+
+## Redis 分布式锁会失效吗？
+
+1️⃣ **锁过期，业务没执行完**
+
+- 解决：看门狗，定时给锁续期
+
+2️⃣ **锁被其他进程释放**
+
+- 生成唯一随机值，释放时校验；锁值‑id，Lua 脚本释放锁
+
+3️⃣ **网络坏了，锁丢了，死锁**
+
+4️⃣ **Redis 宕机锁丢失**
+
+Lua 被当成单命令执行，Redis 单线程串行处理命令
+Lua 脚本**不可中断**
+
+---
+
+## Redis pipeline
+
+一次把多条命令交给 Redis，一次返回所有结果
+1° 减少网络往返次数
+中间命令失败，也不会停止
+批量导入，批量查询
+⚠️注意：**不是分布式锁，不保证原子加减**
+
+pipeline 减少 RTT（网络往返次数），批量给 Redis
+
+### Redis 事务
+
+MULTI 开启、EXEC 执行、DISCARD 放弃事务，watch 监控一个 / 多个 key
+先 WATCH，如果 EXEC 前 key 被修改，放弃执行
+WATCH 乐观锁。
+
+---
+
+## Nginx 反向代理
+
+nginx 再转发到后端，对内网服务做隔离
+负载均衡：把请求分发到多个后端实例，实现集群扩容，扩容
+网关、限流、统一鉴权、限流、ssl 证书
+动态 / 静态资源，静态 nginx 直接返回
+
+
+
+## 覆盖索引：从辅助索引中查询到记录，不需要回表聚簇索引的记录。
+
+MySQL 使用锁为了支持对共享资源进行并发访问，提供数据完整性和一致性。
+
+共享锁：允许事务读一行数据
+排他锁：允许事务删除或更新一行数据
+
+## 库 -> 表-> 页 -> 记录
+共享锁与排他锁是兼容的。
+
+## MVCC：
+一行记录可能不止有一份快照数据。
+- Record Lock 行记录锁，锁记录
+- Gap Lock 间隙锁，锁一个范围
+- Next‑key lock：Gap lock + Record lock，锁记录且锁范围
+
+IS：意向共享锁，事务想要对一张表中某几行加共享锁
+IX：意向排他锁，事务想要对一张表中某几行加排他锁
+
+
+
+表格
+
+| select | poll | epoll |
+| --- | --- | --- |
+| 1024 上限 | 无限制 | 无限制 |
+| 全量拷贝 | 全量拷贝 | 上拷贝就绪链表 |
+| 遍历所有 fd | 遍历 fd | 直接返回就绪 fd |
+| O(n) | O(n) | O(1) |
+
+同步：用户自己调用 read，内核→用户拷贝
+异步：内核自动拷贝完成，用户收结果
+
+每个进程独有 fd‑table 数组，fd 为数组下标，指向 struct file
+
+epoll：红黑树（存所有 fd）+ 就绪链表
+
+LT 水平触发，数据没读完会一直通知
+ET 边缘触发：状态变化通知，必须一次读空
+
+## 阻塞IO 与 IO复用
+阻塞 IO：`read()` → 阻塞 → 数据就绪 → 拷贝 → 返回
+
+非阻塞 IO：read → 没数据立刻返回 EAGAIN → 用户轮询，不阻塞，但要一直轮询（CPU 空转浪费）
+
+IO 多路复用：select /poll/epoll
+把多个 fd 交给内核监控，调用`epoll‑wait`阻塞
+就绪事件 → 返回 → 用户`read()`，一个线程管理多连接
+
+
+## 信号驱动 IO：
+注册 socket 的 fd → 数据就绪 →
+内核发信号 → 信号处理函数
+
+异步 IO：io_submit () 发起调用 →
+内核完成就绪 + 拷贝 → 通知用户
+真正的 product 才返回
+
+块设备：有 IO 调度器
+read → VFS → 块层 →
+调度器 → 队列 → 磁盘
+
+网络 IO：走网络协议栈
+socket → read → 协议栈 →
+内核 skb → 网卡
+
