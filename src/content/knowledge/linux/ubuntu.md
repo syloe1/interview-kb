@@ -75,7 +75,7 @@ ss -tlnp #过滤8082端口
 ss -tlnp | grep 8080
 ```
 
-查看端口占用：
+## 查看端口占用：
 
 ```
 lsof -i :3306
@@ -88,7 +88,7 @@ ss -tlhp | grep 8080 #看有没有占用
 lsof -i :8080 #看谁在用
 ```
 
-怎么查看端口被哪个进程占用，处理手段：
+## 怎么查看端口被哪个进程占用，处理手段：
 
 ```
 ss -tlhp | grep :<端口>; kill -15 <pid>
@@ -193,3 +193,29 @@ IO 磁盘查看 iostat
 文件句柄 lsof
 网络连接 netstat/ss
 cpu 性能 perf
+
+
+## 查看进程是否存在
+```bash
+ps aux | grep  name
+```
+## 确认端口是否监听
+```bash
+ss -tlhp | grep :<端口>
+```
+
+
+## 临时关闭图形界面
+```bash
+sudo systemctl isolate multi-user.target
+```
+## 恢复图形界面：
+```bash
+sudo systemctl isolate graphical.target
+```
+
+## 释放更多资源（可选）禁用 GUI 后，还可以考虑停掉显示管理器服务来节省资源：
+```bash
+sudo systemctl disable gdm        # 或 lightdm / sddm
+sudo systemctl stop gdm
+```bash

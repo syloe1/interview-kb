@@ -1,30 +1,39 @@
-import { Braces, Database, FileText, FolderGit2, Layers3, Terminal, type LucideIcon } from 'lucide-react'
-import { Link } from 'react-router-dom'
-import type { NavIcon } from '../types'
-import { Breadcrumb } from '../components/common/Breadcrumb'
-import { EmptyState } from '../components/common/EmptyState'
-
-export type KnowledgeCategory = 'go' | 'cpp' | 'database' | 'mq' | 'algorithms' | 'interview' | 'k8s' | 'linux'
-
+import {
+  Braces,
+  Database,
+  FileText,
+  FolderGit2,
+  Layers3,
+  Terminal,
+  type LucideIcon,
+} from 'lucide-react';
+import { Link } from 'react-router-dom';
+import type { NavIcon } from '../types';
+import { Breadcrumb } from '../components/common/Breadcrumb';
+import { EmptyState } from '../components/common/EmptyState';
+// 分类联合类型
+export type KnowledgeCategory =
+  'go' | 'cpp' | 'database' | 'mq' | 'algorithms' | 'interview' | 'k8s' | 'linux';
+// 组件Props
 interface KnowledgeCategoryProps {
-  category: KnowledgeCategory
-  title: string
-  description: string
-  icon: NavIcon
+  category: KnowledgeCategory;
+  title: string;
+  description: string;
+  icon: NavIcon;
 }
-
+// 笔记数据结构
 interface KnowledgeNote {
-  id: string
-  title: string
-  summary: string
-  markdown: string
+  id: string;
+  title: string;
+  summary: string;
+  markdown: string;
 }
 
 const markdownModules = import.meta.glob<string>('../content/knowledge/**/*.md', {
   query: '?raw',
   import: 'default',
   eager: true,
-})
+});
 
 const iconMap: Record<NavIcon, LucideIcon> = {
   folder: FolderGit2,
@@ -32,46 +41,58 @@ const iconMap: Record<NavIcon, LucideIcon> = {
   braces: Braces,
   database: Database,
   layers: Layers3,
-}
-
+};
+//提取文件名
 function getFileName(path: string): string {
-  return path.split('/').pop()?.replace(/\.md$/i, '') ?? ''
+  return path.split('/').pop()?.replace(/\.md$/i, '') ?? '';
 }
-
+//提取标题
 function getNoteTitle(markdown: string, fallback: string): string {
-  const heading = markdown.match(/^#\s+(.+)$/m)?.[1]?.trim()
-  return heading || fallback
+  const heading = markdown.match(/^#\s+(.+)$/m)?.[1]?.trim();
+  return heading || fallback;
 }
-
+//提取摘要
 function getNoteSummary(markdown: string): string {
   const summary = markdown
     .split(/\r?\n/)
     .map((line) => line.trim())
-    .find((line) => line && !line.startsWith('#') && !line.startsWith('>') && !line.startsWith('```') && !line.startsWith('<!--'))
+    .find(
+      (line) =>
+        line &&
+        !line.startsWith('#') &&
+        !line.startsWith('>') &&
+        !line.startsWith('```') &&
+        !line.startsWith('<!--')
+    );
 
-  return summary || '这篇笔记暂时还没有摘要。'
+  return summary || '这篇笔记暂时还没有摘要。';
 }
-
+//获取笔记列表
 function getNotes(category: KnowledgeCategory): KnowledgeNote[] {
-  const categoryPrefix = `../content/knowledge/${category}/`
+  const categoryPrefix = `../content/knowledge/${category}/`;
 
   return Object.entries(markdownModules)
     .filter(([path]) => path.startsWith(categoryPrefix))
     .map(([path, markdown]) => {
-      const fileName = getFileName(path)
+      const fileName = getFileName(path);
       return {
         id: fileName.toLowerCase(),
         title: getNoteTitle(markdown, fileName),
         summary: getNoteSummary(markdown),
         markdown,
-      }
+      };
     })
-    .sort((a, b) => a.title.localeCompare(b.title, 'zh-CN'))
+    .sort((a, b) => a.title.localeCompare(b.title, 'zh-CN'));
 }
 
-export function KnowledgeCategoryPage({ category, title, description, icon }: KnowledgeCategoryProps) {
-  const Icon = iconMap[icon]
-  const notes = getNotes(category)
+export function KnowledgeCategoryPage({
+  category,
+  title,
+  description,
+  icon,
+}: KnowledgeCategoryProps) {
+  const Icon = iconMap[icon];
+  const notes = getNotes(category);
 
   return (
     <div>
@@ -80,17 +101,26 @@ export function KnowledgeCategoryPage({ category, title, description, icon }: Kn
         <div>
           <div className="flex items-center gap-2 text-[#2e5d94]">
             <Icon size={17} aria-hidden="true" />
-            <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em]">Knowledge section</span>
+            <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em]">
+              Knowledge section
+            </span>
           </div>
-          <h1 className="mt-3 text-3xl font-semibold tracking-[-0.035em] text-slate-950">{title}</h1>
+          <h1 className="mt-3 text-3xl font-semibold tracking-[-0.035em] text-slate-950">
+            {title}
+          </h1>
           <p className="mt-2 text-sm text-slate-500">{description}</p>
         </div>
-        <span className="font-mono text-xs text-slate-400">{notes.length.toString().padStart(2, '0')} notes</span>
+        <span className="font-mono text-xs text-slate-400">
+          {notes.length.toString().padStart(2, '0')} notes
+        </span>
       </div>
 
       {notes.length === 0 ? (
         <div className="mt-7">
-          <EmptyState title="No notes yet." description="Add a Markdown file to this category directory and it will appear here automatically." />
+          <EmptyState
+            title="No notes yet."
+            description="Add a Markdown file to this category directory and it will appear here automatically."
+          />
         </div>
       ) : (
         <div className="mt-7 space-y-3">
@@ -105,9 +135,13 @@ export function KnowledgeCategoryPage({ category, title, description, icon }: Kn
                   <FileText size={17} strokeWidth={1.8} aria-hidden="true" />
                 </span>
                 <div className="min-w-0">
-                  <h2 className="text-base font-semibold text-slate-900 group-hover:text-[#2e5d94]">{note.title}</h2>
+                  <h2 className="text-base font-semibold text-slate-900 group-hover:text-[#2e5d94]">
+                    {note.title}
+                  </h2>
                   <p className="mt-2 text-sm leading-6 text-slate-500">{note.summary}</p>
-                  <span className="mt-3 inline-block font-mono text-[10px] uppercase tracking-[0.08em] text-slate-400">Open note</span>
+                  <span className="mt-3 inline-block font-mono text-[10px] uppercase tracking-[0.08em] text-slate-400">
+                    Open note
+                  </span>
                 </div>
               </div>
             </Link>
@@ -115,5 +149,5 @@ export function KnowledgeCategoryPage({ category, title, description, icon }: Kn
         </div>
       )}
     </div>
-  )
+  );
 }

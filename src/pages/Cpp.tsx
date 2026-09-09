@@ -1,4 +1,4 @@
-import { KnowledgeCategoryPage } from './KnowledgeCategory'
+import { KnowledgeCategoryPage } from './KnowledgeCategory';
 
 export function Cpp() {
   return (
@@ -8,5 +8,5 @@ export function Cpp() {
       description="C++ 相关知识和面试问题"
       icon="braces"
     />
-  )
+  );
 }

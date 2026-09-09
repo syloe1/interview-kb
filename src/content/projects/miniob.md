@@ -376,6 +376,515 @@ struct ObSkipList<Key, ObComparator>::Node
 private:
   atomic<Node *> next_[1];
 };
+template <typename Key, class ObComparator>
+typename ObSkipList<Key, ObComparator>::Node *ObSkipList<Key, ObComparator>::new_node(const Key &key, int height)
+{
+  // 先malloc申请一块原始裸内容， malloc返回void*, 强转为char *
+  char *const node_memory = reinterpret_cast<char *>(malloc(sizeof(Node) + sizeof(atomic<Node *>) * (height - 1)));
+  return new (node_memory) Node(key);
+}
+template <typename Key, class ObComparator>
+int ObSkipList<Key, ObComparator>::random_height()
+{
+  // 1 / 4概率变高
+  static const unsigned int kBranching = 4;
+  int                       height     = 1;
+  while (height < this->kMaxHeight && this->rnd.next(kBranching) == 0) {
+    height++;
+  }
+  ASSERT(height > 0, "height > 0");
+  ASSERT(height <= this->kMaxHeight, "height <= kMaxHeight");
+  return height;
+}
+template <typename Key, class ObComparator>
+inline ObSkipList<Key, ObComparator>::Iterator::Iterator(const ObSkipList *list)
+{
+  list_ = list;
+  node_ = nullptr;
+}
+template <typename Key, class ObComparator>
+inline bool ObSkipList<Key, ObComparator>::Iterator::valid() const
+{
+  return node_ != nullptr;
+}
+template <typename Key, class ObComparator>
+inline const Key &ObSkipList<Key, ObComparator>::Iterator::key() const
+{
+  ASSERT(valid(), "valid");
+  return node_->key;
+}
+template <typename Key, class ObComparator>
+inline void ObSkipList<Key, ObComparator>::Iterator::next()
+{
+  ASSERT(valid(), "valid");
+  node_ = node_->next(0);
+}
+template <typename Key, class ObComparator>
+inline void ObSkipList<Key, ObComparator>::Iterator::prev()
+{
+  ASSERT(valid(), "valid");
+  node_ = list_->find_less_than(node_->key);
+  if (node_ == list_->head_) {
+    node_ = nullptr;
+  }
+}
+// 1. 跳到 >= target 的第一个节点
+inline void ObSkipList<Key, ObComparator>::Iterator::seek(const Key &target)
+{
+  node_ = list_->find_greater_or_equal(target, nullptr);
+}
+
+// 2. 跳到第一个真实节点
+inline void ObSkipList<Key, ObComparator>::Iterator::seek_to_first()
+{
+  node_ = list_->head_->next(0);
+}
+
+// 3. 跳到最后一个真实节点
+inline void ObSkipList<Key, ObComparator>::Iterator::seek_to_last()
+{
+  node_ = list_->find_last();
+  if (node_ == list_->head_) {
+    node_ = nullptr;
+  }
+}
+template <typename Key, class ObComparator>
+typename ObSkipList<Key, ObComparator>::Node *ObSkipList<Key, ObComparator>::find_greater_or_equal(
+    const Key &key, Node **prev) const
+{
+  Node *cur       = this->head_;
+  int   cur_max_h = this->get_max_height();
+  for (int level = cur_max_h - 1; level >= 0; level--) {
+    while (true) {
+      Node *next_node = cur->next(level);
+      if (next_node == nullptr || this->compare_(key, next_node->key) < 0) {
+        break;
+      }
+      cur = next_node;
+    }
+    if (prev != nullptr) {
+      prev[level] = cur;
+    }
+  }
+  Node *succ = cur->next(0);
+  return succ;
+}
+template <typename Key, class ObComparator>
+typename ObSkipList<Key, ObComparator>::Node *ObSkipList<Key, ObComparator>::find_less_than(const Key &key) const
+{
+  Node *x     = this->head_;
+  int   level = this->get_max_height() - 1;
+  while (true) {
+    ASSERT(x == this->head_ || this->compare_(x->key, key) < 0, "x == head_ || compare_(x->key, key) < 0");
+    Node *next = x->next(level);
+    if (next == nullptr || this->compare_(next->key, key) >= 0) {
+      if (level == 0) {
+        return x;
+      } else {
+        level--;
+      }
+    } else {
+      x = next;
+    }
+  }
+}
+template <typename Key, class ObComparator>
+typename ObSkipList<Key, ObComparator>::Node *ObSkipList<Key, ObComparator>::find_last() const
+{
+  Node *x     = this->head_;
+  int   level = this->get_max_height() - 1;
+  while (true) {
+    Node *next = x->next(level);
+    if (next == nullptr) {
+      if (level == 0) {
+        return x;
+      } else {
+        level--;
+      }
+    } else {
+      x = next;
+    }
+  }
+}
+```
+#### test
+```bash
+./build_debug/unittest/ob_skiplist_test --gtest_also_run_disabled_tests
+```
+
+
+#### 任务2: 实现 Block Cache 功能，加速 SSTable 的读取，实现 SSTable 组织数据的功能。
+> MemTable 的大小达到限制条件，MemTable 的数据以按顺序被转储到磁盘中，被转储到磁盘中的结构称为（SSTable：Sorted Strings table）。
+> SSTable 是一种有序的键值对存储结构，它通常包含一个或多个块（block），每个块中包含一组有序的键值对。
+```text
+需要修改的文件 
+1. 数据组织¶
+src/oblsm/table/ob_block.cpp
+src/oblsm/table/ob_sstable.cpp
+src/oblsm/table/ob_sstable_builder.cpp
+2. 块缓存¶
+src/oblsm/memtable/src/oblsm/util/ob_lru_cache.h
+```
+> 数据组织需要实现的函数
+- ObBlock::decode 从给定的二进制数据中解析并提取出特定格式的数据，数据组织可以参考上面的文档和ObBlockBuilder中的代码。
+- ObSSTable::init ObSSTable初始化，初始化file_reader_和block_metas_
+- ObSSTable::read_block_with_cache
+- ObSSTable::read_block 从文件中读取一个ObBlock。
+- ObSSTableBuilder::build 从memtable构建一个ObSSTable，注意查看ObSSTableBuilder内部函数和变量来实现。
+> 块缓存需要s实现的函数
+- ObLRUCache::get
+- ObLRUCache::put
+- ObLRUCache::contains
+- ObLRUCache<Key, Value> *new_lru_cache(uint32_t capacity)
+
+##### 项目的返回码 Return Code(RC)
+```Cpp
+/* Copyright (c) 2021 OceanBase and/or its affiliates. All rights reserved.
+miniob is licensed under Mulan PSL v2.
+You can use this software according to the terms and conditions of the Mulan PSL v2.
+You may obtain a copy of Mulan PSL v2 at:
+         http://license.coscl.org.cn/MulanPSL2
+THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
+EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
+MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
+See the Mulan PSL v2 for more details. */
+
+//
+// Created by Longda on 2021/5/2.
+//
+
+#pragma once
+
+/**
+ * @brief 这个文件定义函数返回码/错误码(Return Code)
+ * @enum RC
+ */
+
+#define DEFINE_RCS                       \
+  DEFINE_RC(SUCCESS)                     \
+  DEFINE_RC(INVALID_ARGUMENT)            \
+  DEFINE_RC(UNIMPLEMENTED)               \
+  DEFINE_RC(SQL_SYNTAX)                  \
+  DEFINE_RC(INTERNAL)                    \
+  DEFINE_RC(NOMEM)                       \
+  DEFINE_RC(NOTFOUND)                    \
+  DEFINE_RC(EMPTY)                       \
+  DEFINE_RC(FULL)                        \
+  DEFINE_RC(EXIST)                       \
+  DEFINE_RC(NOT_EXIST)                   \
+  DEFINE_RC(BUFFERPOOL_OPEN)             \
+  DEFINE_RC(BUFFERPOOL_NOBUF)            \
+  DEFINE_RC(BUFFERPOOL_INVALID_PAGE_NUM) \
+  DEFINE_RC(RECORD_OPENNED)              \
+  DEFINE_RC(RECORD_INVALID_RID)          \
+  DEFINE_RC(RECORD_INVALID_KEY)          \
+  DEFINE_RC(RECORD_DUPLICATE_KEY)        \
+  DEFINE_RC(RECORD_NOMEM)                \
+  DEFINE_RC(RECORD_EOF)                  \
+  DEFINE_RC(RECORD_NOT_EXIST)            \
+  DEFINE_RC(RECORD_INVISIBLE)            \
+  DEFINE_RC(SCHEMA_DB_EXIST)             \
+  DEFINE_RC(SCHEMA_DB_NOT_EXIST)         \
+  DEFINE_RC(SCHEMA_DB_NOT_OPENED)        \
+  DEFINE_RC(SCHEMA_TABLE_NOT_EXIST)      \
+  DEFINE_RC(SCHEMA_TABLE_EXIST)          \
+  DEFINE_RC(SCHEMA_FIELD_NOT_EXIST)      \
+  DEFINE_RC(SCHEMA_FIELD_MISSING)        \
+  DEFINE_RC(SCHEMA_FIELD_TYPE_MISMATCH)  \
+  DEFINE_RC(SCHEMA_INDEX_NAME_REPEAT)    \
+  DEFINE_RC(IOERR_READ)                  \
+  DEFINE_RC(IOERR_WRITE)                 \
+  DEFINE_RC(IOERR_ACCESS)                \
+  DEFINE_RC(IOERR_OPEN)                  \
+  DEFINE_RC(IOERR_CLOSE)                 \
+  DEFINE_RC(IOERR_SEEK)                  \
+  DEFINE_RC(IOERR_TOO_LONG)              \
+  DEFINE_RC(IOERR_SYNC)                  \
+  DEFINE_RC(LOCKED_UNLOCK)               \
+  DEFINE_RC(LOCKED_NEED_WAIT)            \
+  DEFINE_RC(LOCKED_CONCURRENCY_CONFLICT) \
+  DEFINE_RC(FILE_EXIST)                  \
+  DEFINE_RC(FILE_NOT_EXIST)              \
+  DEFINE_RC(FILE_NAME)                   \
+  DEFINE_RC(FILE_BOUND)                  \
+  DEFINE_RC(FILE_CREATE)                 \
+  DEFINE_RC(FILE_OPEN)                   \
+  DEFINE_RC(FILE_NOT_OPENED)             \
+  DEFINE_RC(FILE_CLOSE)                  \
+  DEFINE_RC(FILE_REMOVE)                 \
+  DEFINE_RC(VARIABLE_NOT_EXISTS)         \
+  DEFINE_RC(VARIABLE_NOT_VALID)          \
+  DEFINE_RC(LOGBUF_FULL)                 \
+  DEFINE_RC(LOG_FILE_FULL)               \
+  DEFINE_RC(LOG_ENTRY_INVALID)           \
+  DEFINE_RC(JSON_PARSE_FAILED)           \
+  DEFINE_RC(JSON_MEMBER_MISSING)         \
+  DEFINE_RC(RANGE_ERROR)                 \
+  DEFINE_RC(WAL_INVALID_FILENAME)        \
+  DEFINE_RC(INPUT_EOF)                   \
+  DEFINE_RC(INVALID_TOKEN)               \
+  DEFINE_RC(UNEXPECTED_END_OF_STRING)    \
+  DEFINE_RC(SYNTAX_ERROR)                \
+  DEFINE_RC(UNSUPPORTED)
+//宏生成 enum class
+enum class RC
+{
+#define DEFINE_RC(name) name,
+  DEFINE_RCS
+#undef DEFINE_RC
+};
+
+extern const char *strrc(RC rc);  // 把RC转字符串，比如 strrc(RC::SUCCESS) 返回 "SUCCESS"，打印日志用
+extern bool OB_SUCC(RC rc);       // 判断是否成功：OB_SUCC(rc) <=> rc == RC::SUCCESS
+extern bool OB_FAIL(RC rc);       // 判断是否失败：OB_FAIL(rc) <=> rc != RC::SUCCESS
+
+## RC 代表「执行结果类别」，不是详细堆栈 / 错误信息
+
+- `RC::SUCCESS`：正常执行成功
+- `RC::NOTFOUND`：查找数据没找到（LSM 查询非常常用）
+- `RC::NOMEM`：内存分配失败
+- `RC::IOERR_READ`：磁盘读错误
+- `RC::RECORD_DUPLICATE_KEY`：唯一键冲突
+打印日志时用 `strrc()` 转成可读字符串
+
+
+//[entry1][entry2]...[entryN][offset1][offset2]...[offsetN][offset_size(n)]
+
+RC ObBlock::decode(const string &data)
+{
+  RC rc = RC::SUCCESS;
+  // 指针指向的内存内容(*buf)不能改，指针buf本身可以修改
+  const char    *buf             = data.data();
+  uint32_t       block_total_len = static_cast<uint32_t>(data.size());
+  const uint32_t uint32_len      = sizeof(uint32_t);
+  // 最小长度：至少要存 offset_size(n) 4字节
+  if (block_total_len < uint32_len) {
+    rc = RC::INVALID_ARGUMENT;
+    return rc;
+  }
+  // Step1：读取Block最后4字节，offset_size(n) = entry数量 N
+  uint32_t offset_count       = get_numeric<uint32_t>(buf + block_total_len - uint32_len);
+  uint32_t offset_array_bytes = offset_count * uint32_len;
+  // Step2：计算offset数组起始位置
+  uint32_t offset_array_start = block_total_len - uint32_len - offset_array_bytes;
+
+  // 边界检查：offset_array_start不能溢出、不能负数
+  if (offset_array_start > block_total_len) {
+    rc = RC::RANGE_ERROR;
+    return rc;
+  }
+  // Step3：entry区域 = [0, offset_array_start)，拷贝到data_、
+  // 第二个参数是**字节个数**，不是结束地址。
+  data_.assign(buf, offset_array_start);
+  offsets_.resize(offset_count);
+  const char *offset_ptr = buf + offset_array_start;  // offset数组第一个offset起始地址
+  for (uint32_t i = 0; i < offset_count; i++) {
+    offsets_[i] = get_numeric<uint32_t>(offset_ptr);
+    offset_ptr += uint32_len;
+  }
+
+  return rc;
+}
+void ObSSTable::init()
+{
+  //**从 SST 文件尾部反向读取 meta 元数据，加载所有 BlockMeta 到内存`block_metas_`数组**。
+  // 读文件尾部， 读出BlockMeta列表， 填充到block_metas
+  // create_file_reader 内部会 open 文件，失败返回 nullptr
+  file_reader_ = ObFileReader::create_file_reader(file_name_);
+  if (file_reader_ == nullptr) {
+    LOG_ERROR("open sst file failed, file=%s", file_name_.c_str());
+    return;
+  }
+  // 获取整个文件大小；**最小合法性校验**：SST 至少要有末尾 4 字节 footer，否则是损坏空文件。
+  uint32_t file_size = file_reader_->file_size();
+  // 文件至少要能放下 4 字节的 footer（meta 区偏移）
+  if (file_size < sizeof(uint32_t)) {
+    LOG_ERROR("sst file is too small, file=%s", file_name_.c_str());
+    return;
+  }
+
+  // 文件末尾 4 字节 = meta 区起始偏移（即 "meta size(n)" 所在位置）
+  string footer = file_reader_->read_pos(file_size - sizeof(uint32_t), sizeof(uint32_t));
+  // footer存meta_start： meta区域在整个SST里的起始位置偏移
+  if (footer.size() != sizeof(uint32_t)) {
+    LOG_ERROR("read sst footer failed, file=%s", file_name_.c_str());
+    return;
+  }
+  uint32_t meta_start = get_numeric<uint32_t>(footer.data());
+
+  // meta 区头部 4 字节 = block 数量 meta_count
+  string meta_count_str = file_reader_->read_pos(meta_start, sizeof(uint32_t));
+  // 清空`block_metas_`，预分配数组空间，避免 push_back 扩容开销
+  if (meta_count_str.size() != sizeof(uint32_t)) {
+    LOG_ERROR("read sst meta count failed, file=%s", file_name_.c_str());
+    return;
+  }
+  uint32_t meta_count = get_numeric<uint32_t>(meta_count_str.data());
+
+  block_metas_.clear();
+  block_metas_.reserve(meta_count);
+
+  // 依次读取每个 block meta：前面 4 字节是长度，后面是 BlockMeta 编码
+  uint32_t pos = meta_start + sizeof(uint32_t);
+  // pos是第一个meta起始位置
+  for (uint32_t i = 0; i < meta_count; i++) {
+    //[meta_count(4B)] [meta1_size(4B)][meta1二进制]
+    string meta_size_str = file_reader_->read_pos(pos, sizeof(uint32_t));
+    if (meta_size_str.size() != sizeof(uint32_t)) {
+      LOG_ERROR("read sst block meta size failed, file=%s", file_name_.c_str());
+      return;
+    }
+    uint32_t meta_size = get_numeric<uint32_t>(meta_size_str.data());
+    //**跳过 meta_size 字段，定位到 BlockMeta 二进制数据的起始位置**。
+    pos += sizeof(uint32_t);
+
+    string meta_str = file_reader_->read_pos(pos, meta_size);
+    if (meta_str.size() != meta_size) {
+      LOG_ERROR("read sst block meta failed, file=%s", file_name_.c_str());
+      return;
+    }
+    pos += meta_size;
+
+    BlockMeta meta;
+    if (meta.decode(meta_str) != RC::SUCCESS) {
+      LOG_ERROR("decode block meta failed, file=%s, meta_idx=%u", file_name_.c_str(), i);
+      return;
+    }
+    block_metas_.push_back(meta);
+  }
+}
+
+shared_ptr<ObBlock> ObSSTable::read_block_with_cache(uint32_t block_idx) const
+{
+  // 无缓存时直接读磁盘
+  if (block_cache_ == nullptr) {
+    return read_block(block_idx);
+  }
+
+  // 用 (sst_id, block_id) 拼成单个 uint64 作为缓存 key
+  uint64_t cache_key = (static_cast<uint64_t>(sst_id_) << 32) | block_idx;
+
+  shared_ptr<ObBlock> block;
+  if (block_cache_->get(cache_key, block)) {
+    return block;
+  }
+  // 读磁盘
+  block = read_block(block_idx);
+  if (block != nullptr) {
+    // 写缓存
+    block_cache_->put(cache_key, block);
+  }
+  return block;
+}
+
+shared_ptr<ObBlock> ObSSTable::read_block(uint32_t block_idx) const
+{
+  // 越界， 返回
+  if (block_idx >= block_metas_.size()) {
+    return nullptr;
+  }
+  // 读内存
+  const BlockMeta &meta = block_metas_[block_idx];
+  // 随机读sst文件
+  string data = file_reader_->read_pos(meta.offset_, meta.size_);
+  if (data.size() != meta.size_) {
+    LOG_ERROR("read block failed, file=%s, block_idx=%u", file_name_.c_str(), block_idx);
+    return nullptr;
+  }
+  // 新建ObBlock智能指针，把二进制 data 反序列化成 block 内部有序 KV 表。**这部分全部是内存计算，没有 IO。**
+  shared_ptr<ObBlock> block = make_shared<ObBlock>(comparator_);
+  if (block->decode(data) != RC::SUCCESS) {
+    LOG_ERROR("decode block failed, file=%s, block_idx=%u", file_name_.c_str(), block_idx);
+    return nullptr;
+  }
+  return block;
+}
+```
+### 实现LRU 模板类的代码，必须放在头文件（.h/.hpp），否则链接阶段报错
+| 表达式                  | 含义                       | 类型              |
+| -------------------- | ------------------------ | --------------- |
+| `it`                 | map 的迭代器                 | `map_iterator`  |
+| `it->first`          | map 里的 key               | `KeyType`       |
+| `it->second`         | map 里的 value = **链表迭代器** | `list_iterator` |
+| `it->second->first`  | 链表节点的 key                | `KeyType`       |
+| `it->second->second` | 链表节点的 value              | `ValueType`     |
+
+```Cpp
+/* Copyright (c) 2021 OceanBase and/or its affiliates. All rights reserved.
+miniob is licensed under Mulan PSL v2.
+You can use this software according to the terms and conditions of the Mulan PSL v2.
+You may obtain a copy of Mulan PSL v2 at:
+    http://license.coscl.org.cn/MulanPSL2
+THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
+EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
+MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
+See the Mulan PSL v2 for more details. */
+#pragma once
+#include <stdint.h>
+#include <cstddef>
+#include <list>
+#include <unordered_map>
+#include <mutex>
+namespace oceanbase {
+
+template <typename KeyType, typename ValueType>
+class ObLRUCache
+{
+public:
+  ObLRUCache(size_t capacity) : capacity_(capacity) {}
+
+  bool get(const KeyType &key, ValueType &value)
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto it = map_.find(key);
+    if (it == map_.end()) {
+      return false;
+    }
+    list_.splice(list_.begin(), list_, it->second);
+    value = it->second->second;
+    return true;
+  }
+
+  void put(const KeyType &key, const ValueType &value)
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto it = map_.find(key);
+    if (it != map_.end()) {
+      it->second->second = value;
+      list_.splice(list_.begin(), list_, it->second);
+      return;
+    }
+    list_.emplace_front(key, value);
+    map_[key] = list_.begin();
+
+    if (map_.size() > capacity_) {
+      auto last = list_.back();
+      map_.erase(last.first);
+      list_.pop_back();
+    }
+  }
+
+  bool contains(const KeyType &key) const
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return map_.find(key) != map_.end();
+  }
+
+private:
+  size_t capacity_;
+  mutable std::mutex mutex_;
+  std::list<std::pair<KeyType, ValueType>> list_;
+  std::unordered_map<KeyType, typename std::list<std::pair<KeyType, ValueType>>::iterator> map_;
+};
+
+template <typename Key, typename Value>
+ObLRUCache<Key, Value> *new_lru_cache(uint32_t capacity)
+{
+  return new ObLRUCache<Key, Value>(capacity);
+}
+
+}  // namespace oceanbase
+
 ```
 
 
@@ -384,8 +893,34 @@ private:
 
 
 
-任务2: 实现 Block Cache 功能，加速 SSTable 的读取，实现 SSTable 组织数据的功能。
-任务3: 实现 Leveled Compaction 功能，支持 SSTable 的合并
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#### 任务3: 实现 Leveled Compaction 功能，支持 SSTable 的合并
 ```Cpp
 
 ```

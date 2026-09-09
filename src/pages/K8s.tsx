@@ -1,4 +1,4 @@
-import { KnowledgeCategoryPage } from './KnowledgeCategory'
+import { KnowledgeCategoryPage } from './KnowledgeCategory';
 
 export function K8s() {
   return (
@@ -8,5 +8,5 @@ export function K8s() {
       description="Kubernetes、容器编排和云原生知识"
       icon="layers"
     />
-  )
+  );
 }

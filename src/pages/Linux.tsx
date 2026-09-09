@@ -1,4 +1,4 @@
-import { KnowledgeCategoryPage } from './KnowledgeCategory'
+import { KnowledgeCategoryPage } from './KnowledgeCategory';
 
 export function Linux() {
   return (
@@ -8,5 +8,5 @@ export function Linux() {
       description="Linux 系统、命令和内核基础"
       icon="terminal"
     />
-  )
+  );
 }

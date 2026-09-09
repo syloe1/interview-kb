@@ -1,4 +1,4 @@
-import { KnowledgeCategoryPage } from './KnowledgeCategory'
+import { KnowledgeCategoryPage } from './KnowledgeCategory';
 
 export function Algorithm() {
   return (
@@ -8,5 +8,5 @@ export function Algorithm() {
       description="Hot 100、数据结构和算法题解"
       icon="braces"
     />
-  )
+  );
 }

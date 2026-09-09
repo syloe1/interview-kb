@@ -1,4 +1,4 @@
-import { KnowledgeCategoryPage } from './KnowledgeCategory'
+import { KnowledgeCategoryPage } from './KnowledgeCategory';
 
 export function Database() {
   return (
@@ -8,5 +8,5 @@ export function Database() {
       description="MySQL、Redis、数据库原理等"
       icon="database"
     />
-  )
+  );
 }

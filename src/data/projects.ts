@@ -1,11 +1,12 @@
-import type { Project } from '../types'
+import type { Project } from '../types';
 
 export const projects: Project[] = [
   {
     id: 'reactornet',
     name: 'ReactorNet',
     category: 'C++ network library',
-    description: 'A minimalist C++ network library implementing the Reactor pattern, inspired by muduo.',
+    description:
+      'A minimalist C++ network library implementing the Reactor pattern, inspired by muduo.',
     tags: ['C++', 'Linux', 'epoll', 'Reactor', 'Networking'],
     path: '/projects/reactornet',
     status: 'active',
@@ -16,7 +17,8 @@ export const projects: Project[] = [
     id: 'frontman',
     name: 'Frontman',
     category: 'Go API gateway',
-    description: 'A Go API gateway with reverse proxy, routing, plugins, load balancing, and backend service management.',
+    description:
+      'A Go API gateway with reverse proxy, routing, plugins, load balancing, and backend service management.',
     tags: ['Go', 'API Gateway', 'Reverse Proxy', 'Routing', 'Plugins'],
     path: '/projects/frontman',
     status: 'active',
@@ -27,7 +29,8 @@ export const projects: Project[] = [
     id: 'moonmq',
     name: 'MoonMQ',
     category: 'Go message queue',
-    description: 'A Go message queue with a custom protocol, TCP and HTTP access, pluggable storage, and acknowledgements.',
+    description:
+      'A Go message queue with a custom protocol, TCP and HTTP access, pluggable storage, and acknowledgements.',
     tags: ['Go', 'Message Queue', 'TCP', 'Redis'],
     path: '/projects/moonmq',
     status: 'active',
@@ -38,7 +41,8 @@ export const projects: Project[] = [
     id: 'janus',
     name: 'Janus',
     category: 'Go API gateway',
-    description: 'Notes on Janus, a Go API gateway covering Cobra commands, proxying, middleware, TLS, and service configuration.',
+    description:
+      'Notes on Janus, a Go API gateway covering Cobra commands, proxying, middleware, TLS, and service configuration.',
     tags: ['Go', 'API Gateway', 'Proxy', 'Cobra'],
     path: '/projects/janus',
     status: 'active',
@@ -49,7 +53,8 @@ export const projects: Project[] = [
     id: 'distribute-storage',
     name: 'Distributed Storage',
     category: 'C++ distributed KV store',
-    description: 'A minimal distributed key-value storage system implemented in C++20 with coordinator and storage nodes.',
+    description:
+      'A minimal distributed key-value storage system implemented in C++20 with coordinator and storage nodes.',
     tags: ['C++20', 'Distributed Systems', 'KV Store', 'Networking'],
     path: '/projects/distribute-storage',
     status: 'active',
@@ -60,7 +65,8 @@ export const projects: Project[] = [
     id: 'distributed-kv',
     name: 'Distributed KV',
     category: 'C++ distributed KV store',
-    description: 'A high-performance distributed KV store built with Muduo, consistent hashing, sharding locks, and asynchronous replication.',
+    description:
+      'A high-performance distributed KV store built with Muduo, consistent hashing, sharding locks, and asynchronous replication.',
     tags: ['C++17', 'Muduo', 'Consistent Hashing', 'Replication'],
     path: '/projects/distributed-kv',
     status: 'active',
@@ -71,7 +77,8 @@ export const projects: Project[] = [
     id: 'tutucache',
     name: 'TutuCache',
     category: 'Go distributed cache',
-    description: 'A distributed cache covering LRU eviction, TTL expiration, peer loading, consistent hashing, and metrics.',
+    description:
+      'A distributed cache covering LRU eviction, TTL expiration, peer loading, consistent hashing, and metrics.',
     tags: ['Go', 'Cache', 'LRU', 'Consistent Hashing'],
     path: '/projects/tutucache',
     status: 'active',
@@ -82,7 +89,8 @@ export const projects: Project[] = [
     id: 'miniob',
     name: 'MiniOB',
     category: 'C++ database labs',
-    description: 'MiniOB lab notes covering bloom filters, skip lists, and storage engine implementation details.',
+    description:
+      'MiniOB lab notes covering bloom filters, skip lists, and storage engine implementation details.',
     tags: ['C++', 'Database', 'Bloom Filter', 'Skip List'],
     path: '/projects/miniob',
     status: 'active',
@@ -93,7 +101,8 @@ export const projects: Project[] = [
     id: 'miniob-cpp-exercises',
     name: 'MiniOB C++ Exercises',
     category: 'C++ concurrency exercises',
-    description: 'C++ practice notes for MiniOB, including CAS, atomic operations, and lock-free programming exercises.',
+    description:
+      'C++ practice notes for MiniOB, including CAS, atomic operations, and lock-free programming exercises.',
     tags: ['C++', 'Concurrency', 'Atomics', 'CAS'],
     path: '/projects/miniob-cpp-exercises',
     fileName: 'miniobcpp小练习.md',
@@ -105,7 +114,8 @@ export const projects: Project[] = [
     id: 'mall',
     name: 'Mall',
     category: 'Go e-commerce system',
-    description: 'Architecture and interview notes for a Go mall service, including web, worker, and order flows.',
+    description:
+      'Architecture and interview notes for a Go mall service, including web, worker, and order flows.',
     tags: ['Go', 'E-commerce', 'Microservices', 'Orders'],
     path: '/projects/mall',
     status: 'active',
@@ -116,7 +126,8 @@ export const projects: Project[] = [
     id: 'gozero-tutorial',
     name: 'Go-Zero Tutorial',
     category: 'Go microservices',
-    description: 'Go-Zero notes for API, RPC, model generation, configuration, and dependency injection.',
+    description:
+      'Go-Zero notes for API, RPC, model generation, configuration, and dependency injection.',
     tags: ['Go', 'Go-Zero', 'RPC', 'Microservices'],
     path: '/projects/gozero-tutorial',
     fileName: 'gozero教程.md',
@@ -128,7 +139,8 @@ export const projects: Project[] = [
     id: 'go-reverse-proxy',
     name: 'Go Reverse Proxy',
     category: 'Go networking',
-    description: 'Notes on building a reverse proxy with Go net/http and httputil, including routing and request forwarding.',
+    description:
+      'Notes on building a reverse proxy with Go net/http and httputil, including routing and request forwarding.',
     tags: ['Go', 'Reverse Proxy', 'HTTP', 'Networking'],
     path: '/projects/go-reverse-proxy',
     fileName: '用go构建反向代理.md',
@@ -140,7 +152,8 @@ export const projects: Project[] = [
     id: 'pr-workflow',
     name: 'PR Workflow',
     category: 'Engineering workflow',
-    description: 'Practical notes for GitHub pull requests, branches, issue references, and common repository commands.',
+    description:
+      'Practical notes for GitHub pull requests, branches, issue references, and common repository commands.',
     tags: ['Git', 'GitHub', 'Pull Requests', 'Workflow'],
     path: '/projects/pr-workflow',
     fileName: 'PR流程.md',
@@ -159,4 +172,4 @@ export const projects: Project[] = [
     updatedAt: 'Not started',
     moduleCount: 0,
   },
-]
+];
