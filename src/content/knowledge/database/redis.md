@@ -232,4 +232,175 @@ AOF 刷盘策略：
 
 redis 的 pipeline 批量发送命令，减少往返时间
 
-今天 12:05
+## Lua脚本格式
+
+```go
+# 格式
+
+EVAL "lua脚本内容" key数量 key1 key2 arg1 arg2
+
+ 示例：设置一个key
+EVAL "redis.call('SET', KEYS[1], ARGV[1])" 1 user:100 name zhangsan
+
+EYS[1]：必须放键名（规范）
+ARGV[1]：放参数
+redis.call()：执行 Redis 命令
+脚本全程原子执行，不会被其他命令打断
+```
+
+## 限流原子自增
+
+```go
+-- 功能：10秒内最多访问5次
+local key = KEYS[1]
+local max = tonumber(ARGV[1])
+local expire = tonumber(ARGV[2])
+
+local count = redis.call('GET', key)
+if count and tonumber(count) >= max then
+    return 0  -- 超过限制
+end
+
+count = redis.call('INCR', key)
+if tonumber(count) == 1 then
+    redis.call('EXPIRE', key, expire)
+end
+return 1
+```
+
+## EVALSHA
+
+```go
+SCRIPT LOAD "local key=KEYS[1] local max=tonumber(ARGV[1]) local expire=tonumber(ARGV[2]) local count=redis.call('GET',key) if count and tonumber(count)>=max then return 0 end count=redis.call('INCR',key) if tonumber(count)==1 then redis.call('EXPIRE',key,expire) end return 1"
+```
+
+用SCRIPT LOAD lua命令
+
+得到SHA1码， 用EVALSHA SHA1码 1 rate:user:100 5 10去做
+
+Redis默认有16个独立数据库，0~15. SELECT 1切换分区
+
+## Hash原子更新用户信息 + 校验存在性
+
+## 安全入队 + 长度限制
+
+```go
+local key = KEYS[1]
+local msg = ARGV[1]
+local max_len = tonumber(ARGV[2])
+
+redis.call('LPUSH', key, msg)
+redis.call('LTRIM', key, 0, max_len - 1)
+return 1
+```
+
+## 原子增加 + 判断是否已存在
+
+```go
+local key = KEYS[1]
+local member = ARGV[1]
+local exists = redis.call('SISMEMBER', key, member)
+if exists == 1 then
+    return 0
+end
+redis.call('SADD', key, member)
+return 1
+```
+
+## redis存储的都是字符串， 使用tonumber转成数字
+
+## 更新排行榜 + 只允许更高分数覆盖
+
+```go
+local key = KEYS[1]
+local uid = ARGV[1]
+local new_score = tonumber(ARGV[2])
+
+local old_score = redis.call('ZSCORE', key, uid)
+if old_score and tonumber(old_score) >= new_score then
+    return 0
+end
+redis.call('ZADD', key, new_score, uid)
+return 1
+```
+
+## Redis事务MULTI/EXEC简单批量
+
+```go
+MULTI        -- 开启事务
+SET a 100
+HSET user:1 name tom
+LPUSH list hello
+EXEC         -- 执行（原子）
+```
+
+- `MULTI`：**开启事务**
+- 后面写的命令：**不会马上执行，而是放进队列**，所以返回 `QUEUED`
+- `EXEC`：**一次性、原子性执行所有队列命令**
+- 执行完才会返回所有结果
+
+# Redis 事务的核心特点（必须懂）
+
+1. **原子性**：要么全部执行，要么全部不执行
+2. **中间不会被别的命令插入**
+3. **Redis 事务不会回滚**（某条错了，其他继续执行）
+
+## Pipeline管道高性能批量， 非原子， 只是减少网络往返
+
+```go
+-- KEYS[1] = 商品库存key  例如：stock:iphone16
+-- ARGV[1] = 扣减数量    例如：1（每人买1件）
+
+-- 1. 获取当前库存
+local stock = redis.call('GET', KEYS[1])
+
+-- 2. 如果库存不存在 或者 库存 < 要扣的数量
+if not stock or tonumber(stock) < tonumber(ARGV[1]) then
+    return 0  -- 返回0：库存不足，扣减失败
+end
+
+-- 3. 库存足够，执行扣减
+redis.call('DECRBY', KEYS[1], ARGV[1])
+
+return 1  -- 返回1：扣减成功
+```
+
+- **单机锁**：简单快，怕主从宕机丢锁
+- **红锁 Redlock**：多节点过半成功才算锁，高可靠、重、慢
+- **普通业务单机锁够用，金融级上红锁，极致稳定用 ZK**
+
+```go
+
+-- KEYS[1] 锁key，ARGV[1] 唯一标识value，ARGV[2] 过期时间
+if redis.call('setnx',KEYS[1],ARGV[1]) == 1 then
+    redis.call('expire',KEYS[1],ARGV[2])
+    return 1
+else
+    return 0
+end
+```
+
+等价命令：`SET lock:order uuid NX EX 30`
+
+- `NX`：不存在才设置（互斥）
+- `EX`：自动过期（防死锁）
+
+## 解锁
+
+```go
+
+if redis.call('get',KEYS[1]) == ARGV[1] then
+return redis.call('del',KEYS[1])
+else
+return 0
+end
+```
+
+“**为什么锁不能单独解决幂等，必须配合状态机和唯一索引**”。
+分布式锁只防**并发争抢**，挡不住**重复重试请求**；必须搭配**唯一索引**拦重复入库、**状态机**约束业务流转，三者配合才能彻底保证幂等。
+
+锁解决：**同一时刻多请求同时执行业务**，避免并发脏数据
+
+幂等解决：**多次相同请求反复进来**，保证只生效一次
+
+锁管不住超时重试、前端重复点击、mq 重投、接口重试这类重复请求。

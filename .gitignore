@@ -63,3 +63,6 @@ credentials/
 *.njsproj
 *.sln
 *.sw?
+
+# Local git push guide
+gitpush.md
