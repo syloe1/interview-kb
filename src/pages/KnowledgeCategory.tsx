@@ -13,7 +13,15 @@ import { Breadcrumb } from '../components/common/Breadcrumb';
 import { EmptyState } from '../components/common/EmptyState';
 // 分类联合类型
 export type KnowledgeCategory =
-  'go' | 'cpp' | 'database' | 'mq' | 'algorithms' | 'interview' | 'k8s' | 'linux';
+  | 'go'
+  | 'cpp'
+  | 'database'
+  | 'mq'
+  | 'algorithms'
+  | 'interview'
+  | 'k8s'
+  | 'linux'
+  | 'thinking';
 // 组件Props
 interface KnowledgeCategoryProps {
   category: KnowledgeCategory;

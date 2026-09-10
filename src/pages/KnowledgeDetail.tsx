@@ -33,6 +33,7 @@ const categoryLabels: Record<string, string> = {
   interview: '面试',
   k8s: 'K8s',
   linux: 'Linux',
+  thinking: '思考',
 };
 //生成目录
 function getTableOfContents(markdown: string): TableOfContentsItem[] {

@@ -14,6 +14,7 @@ import { Interview } from './pages/Interview';
 import { KnowledgeDetail } from './pages/KnowledgeDetail';
 import { K8s } from './pages/K8s';
 import { Linux } from './pages/Linux';
+import { Thinking } from './pages/Thinking';
 
 const ProjectDetail = lazy(() =>
   import('./pages/ProjectDetail').then((module) => ({ default: module.ProjectDetail }))
@@ -68,6 +69,11 @@ function App() {
           <Route path="/k8s/:noteId" element={<KnowledgeDetail category="k8s" />} />
           <Route path="/linux" element={<Linux />} />
           <Route path="/linux/:noteId" element={<KnowledgeDetail category="linux" />} />
+          <Route path="/thinking" element={<Thinking />} />
+          <Route
+            path="/thinking/:noteId"
+            element={<KnowledgeDetail category="thinking" />}
+          />
           <Route path="/home" element={<Navigate to="/" replace />} />
           <Route path="*" element={<NotFound />} />
         </Route>

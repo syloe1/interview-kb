@@ -72,4 +72,11 @@ export const navigationItems: NavigationItem[] = [
     icon: 'terminal',
     countLabel: 'Coming soon',
   },
+  {
+    label: '思考',
+    path: '/thinking',
+    description: '个人思考、复盘与学习方法',
+    icon: 'layers',
+    countLabel: '1 note',
+  },
 ];
