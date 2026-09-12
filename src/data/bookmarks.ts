@@ -32,8 +32,7 @@ export const bookmarkCategories: BookmarkCategory[] = [
     links: [
       { label: '生成式软件工程', url: 'https://www.bilibili.com/video/BV1pb8o6yE8f?spm_id_from=333.788.videopod.sections' },
       { label: 'cmu11768', url: 'https://www.cmu-agents.com/' },
-      { label: '生成式软件工程', url: 'https://www.bilibili.com/video/BV1pb8o6yE8f?spm_id_from=333.788.videopod.sections' },
-      { label: '生成式软件工程', url: 'https://www.bilibili.com/video/BV1pb8o6yE8f?spm_id_from=333.788.videopod.sections' },
+      { label: 'cs329z', url: 'https://cs329z.stanford.edu/' },
       { label: '6.5840', url: 'https://pdos.csail.mit.edu/6.824/' },
       { label: '445', url: 'https://15445.courses.cs.cmu.edu/fall2025/' },
       { label: '开源操作系统训练营', url: 'https://opencamp.cn/os2edu/camp/2026fall' },
