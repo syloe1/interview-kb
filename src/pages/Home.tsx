@@ -39,6 +39,9 @@ export function Home() {
             <p className="mt-5 max-w-xl text-sm leading-7 text-[var(--text-muted)]">
               这是一个用于记录和复习个人项目、技术知识和面试问题的知识库。把值得再次想起的内容，整理成可以快速检索的笔记。
             </p>
+            <blockquote className="mt-6 border-l-2 border-[var(--accent)] pl-4 text-[15px] font-medium leading-7 text-[var(--text-secondary)]">
+              软件工程正在从写代码，转向定义问题、组织上下文、验证结果。
+            </blockquote>
           </div>
 
           <div className="border-l-2 border-[var(--border-active)] pl-4 text-sm text-[var(--text-muted)] lg:mb-1">
