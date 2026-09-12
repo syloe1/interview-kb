@@ -31,28 +31,28 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         {isOpen && (
           <button
             aria-label="Close navigation"
-            className="fixed inset-0 z-40 bg-slate-900/20 lg:hidden"
+            className="fixed inset-0 z-40 bg-[var(--overlay)] lg:hidden"
             onClick={onClose}
           />
         )}
       </>
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-[252px] flex-col border-r border-slate-200 bg-white pt-[68px] transition-transform duration-200 lg:sticky lg:top-0 lg:z-10 lg:h-[calc(100vh-68px)] lg:translate-x-0 lg:pt-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}
+        className={`fixed inset-y-0 left-0 z-50 flex w-[252px] flex-col border-r border-[var(--border)] bg-[var(--sidebar-bg)] pt-[68px] transition-transform duration-200 lg:sticky lg:top-0 lg:z-10 lg:h-[calc(100vh-68px)] lg:translate-x-0 lg:pt-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}
       >
-        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4 lg:hidden">
-          <span className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
+        <div className="flex items-center justify-between border-b border-[var(--border-light)] px-5 py-4 lg:hidden">
+          <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-faint)]">
             Navigation
           </span>
           <button
             aria-label="Close navigation"
             onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100"
+            className="flex h-8 w-8 items-center justify-center rounded-md text-[var(--text-faint)] hover:bg-[var(--hover-bg)]"
           >
             <X size={17} aria-hidden="true" />
           </button>
         </div>
         <div className="px-3 py-5">
-          <p className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+          <p className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--text-faint)]">
             Knowledge base
           </p>
           <nav className="space-y-1" aria-label="Primary navigation">
@@ -64,7 +64,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                   to={item.path}
                   onClick={onClose}
                   className={({ isActive }) =>
-                    `group flex items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-colors ${isActive ? 'bg-slate-100 font-semibold text-slate-900' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'}`
+                    `group flex items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-colors ${isActive ? 'bg-[var(--hover-bg)] font-semibold text-[var(--text-primary)]' : 'text-[var(--text-muted)] hover:bg-[var(--hover-bg)] hover:text-[var(--text-secondary)]'}`
                   }
                 >
                   {({ isActive }) => (
@@ -74,15 +74,15 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                         strokeWidth={isActive ? 2.2 : 1.8}
                         className={
                           isActive
-                            ? 'text-[#2e5d94]'
-                            : 'text-slate-400 group-hover:text-slate-600'
+                            ? 'text-[var(--accent)]'
+                            : 'text-[var(--text-faint)] group-hover:text-[var(--text-muted)]'
                         }
                         aria-hidden="true"
                       />
                       <span className="flex-1">{item.label}</span>
                       {item.label === 'Projects' && (
                         <span
-                          className={`font-mono text-[10px] ${isActive ? 'text-slate-500' : 'text-slate-400'}`}
+                          className={`font-mono text-[10px] ${isActive ? 'text-[var(--text-muted)]' : 'text-[var(--text-faint)]'}`}
                         >
                           {projects.length.toString().padStart(2, '0')}
                         </span>
@@ -94,8 +94,8 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             })}
           </nav>
         </div>
-        <div className="mt-auto border-t border-slate-100 px-6 py-5">
-          <div className="flex items-start gap-2.5 text-slate-400">
+        <div className="mt-auto border-t border-[var(--border-light)] px-6 py-5">
+          <div className="flex items-start gap-2.5 text-[var(--text-faint)]">
             <FileText size={15} className="mt-0.5 shrink-0" aria-hidden="true" />
             <p className="text-xs leading-5">
               A quiet place to collect
@@ -103,7 +103,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
               what I want to remember.
             </p>
           </div>
-          <p className="mt-5 font-mono text-[10px] text-slate-300">
+          <p className="mt-5 font-mono text-[10px] text-[var(--border)]">
             v0.1 · static knowledge base
           </p>
         </div>

@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { Header } from './Header';
 import { Sidebar } from './Sidebar';
+import { Footer } from './Footer';
+import { ScrollProgress } from './ScrollProgress';
 // useState	管理侧边栏开关状态
 // useEffect	监听路由变化，执行副作用
 // useLocation	获取当前 URL 信息
@@ -22,7 +24,8 @@ export function Layout() {
     });
   }, [location.pathname]); // 依赖：路径变化时触发
   return (
-    <div className="min-h-screen bg-[#f7f9fc] text-slate-800">
+    <div className="min-h-screen bg-[var(--bg)] text-[var(--text-primary)]">
+      <ScrollProgress />
       <Header onMenuClick={() => setSidebarOpen(true)} />
       <div className="mx-auto grid min-h-[calc(100vh-68px)] max-w-[1440px] lg:grid-cols-[252px_minmax(0,1fr)]">
         <Sidebar isOpen={isSidebarOpen} onClose={() => setSidebarOpen(false)} />
@@ -32,6 +35,7 @@ export function Layout() {
           </div>
         </main>
       </div>
+      <Footer />
     </div>
   );
 }

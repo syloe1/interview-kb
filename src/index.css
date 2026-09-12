@@ -1,10 +1,244 @@
 @import "tailwindcss";
 @import "highlight.js/styles/github-dark-dimmed.css";
 
+/* ============================================================
+   主题 CSS 变量 —— light 为默认，与原有样式完全一致
+   ============================================================ */
+:root,
+[data-theme="light"] {
+  --bg: #f7f9fc;
+  --card-bg: #ffffff;
+  --card-bg-active: #fbfdff;
+  --border: #e2e8f0;
+  --border-light: #f1f5f9;
+  --border-active: #b9cbe0;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --text-faint: #94a3b8;
+  --accent: #2e5d94;
+  --accent-light: #e7f0f8;
+  --accent-text: #2e5d94;
+  --hover-bg: #f8fafc;
+  --sidebar-bg: #ffffff;
+  --header-bg: rgba(255, 255, 255, 0.95);
+  --footer-bg: #ffffff;
+  --progress-color: #2e5d94;
+  --badge-bg: #e7f0f8;
+  --badge-text: #2e5d94;
+  --badge-secondary-bg: #f1f5f9;
+  --badge-secondary-text: #475569;
+  --overlay: rgba(15, 23, 42, 0.2);
+  --radius-card: 0.5rem;
+  --radius-btn: 0.375rem;
+  --pixel-border: none;
+  --font-body: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+/* Dark 主题 */
+[data-theme="dark"] {
+  --bg: #0f172a;
+  --card-bg: #1e293b;
+  --card-bg-active: #1e3a5f;
+  --border: #334155;
+  --border-light: #1e293b;
+  --border-active: #3b82f6;
+  --text-primary: #f1f5f9;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+  --text-faint: #64748b;
+  --accent: #60a5fa;
+  --accent-light: #1e3a5f;
+  --accent-text: #60a5fa;
+  --hover-bg: #334155;
+  --sidebar-bg: #1e293b;
+  --header-bg: rgba(15, 23, 42, 0.95);
+  --footer-bg: #1e293b;
+  --progress-color: #60a5fa;
+  --badge-bg: #1e3a5f;
+  --badge-text: #60a5fa;
+  --badge-secondary-bg: #334155;
+  --badge-secondary-text: #94a3b8;
+  --overlay: rgba(0, 0, 0, 0.5);
+  --radius-card: 0.5rem;
+  --radius-btn: 0.375rem;
+  --pixel-border: none;
+}
+
+/* Pixel 像素主题（MC 复古风格，彩蛋）—— 温暖羊皮纸配色 */
+[data-theme="pixel"] {
+  --bg: #e0d8c8;
+  --card-bg: #f0e8d8;
+  --card-bg-active: #f5efe2;
+  --border: #3d3020;
+  --border-light: #8a7a60;
+  --border-active: #5d7c15;
+  --text-primary: #1a1410;
+  --text-secondary: #2a2218;
+  --text-muted: #4a3d2a;
+  --text-faint: #6b5a40;
+  --accent: #5d7c15;
+  --accent-light: #a0c93d;
+  --accent-text: #3d5210;
+  --hover-bg: #d4cbb8;
+  --sidebar-bg: #d4cbb8;
+  --header-bg: #d4cbb8;
+  --footer-bg: #d4cbb8;
+  --progress-color: #5d7c15;
+  --badge-bg: #a0c93d;
+  --badge-text: #1a1410;
+  --badge-secondary-bg: #b8a888;
+  --badge-secondary-text: #1a1410;
+  --overlay: rgba(0, 0, 0, 0.35);
+  --radius-card: 0px;
+  --radius-btn: 0px;
+  --pixel-border: 2px solid #3d3020;
+  --pixel-shadow-raised: inset 2px 2px 0 rgba(255,255,255,0.4), inset -2px -2px 0 rgba(0,0,0,0.25);
+  --pixel-shadow-pressed: inset -2px -2px 0 rgba(255,255,255,0.4), inset 2px 2px 0 rgba(0,0,0,0.25);
+  --font-body: "Courier New", "Lucida Console", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* ============================================================
+   Pixel 主题全局样式
+   ============================================================ */
+
+/* 1. 清除所有圆角 */
+[data-theme="pixel"] *,
+[data-theme="pixel"] *::before,
+[data-theme="pixel"] *::after {
+  border-radius: 0 !important;
+}
+
+/* 2. 全局像素等宽字体 */
+[data-theme="pixel"] body {
+  font-family: var(--font-body);
+  image-rendering: pixelated;
+  -webkit-font-smoothing: none;
+  letter-spacing: 0.01em;
+}
+
+/* 3. 页面背景：MC 像素点阵纹理（羊皮纸底） */
+[data-theme="pixel"] body {
+  background-color: #d8cfbe;
+  background-image:
+    linear-gradient(45deg, rgba(61,48,32,0.04) 25%, transparent 25%),
+    linear-gradient(-45deg, rgba(61,48,32,0.04) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, rgba(61,48,32,0.04) 75%),
+    linear-gradient(-45deg, transparent 75%, rgba(61,48,32,0.04) 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+}
+
+/* 4. MC 方块浮雕边框 —— 仅作用于明确的交互元素和容器 */
+[data-theme="pixel"] button,
+[data-theme="pixel"] a[class*="border"],
+[data-theme="pixel"] input,
+[data-theme="pixel"] label,
+[data-theme="pixel"] kbd {
+  border: var(--pixel-border) !important;
+  box-shadow: var(--pixel-shadow-raised);
+  transition: box-shadow 0.05s steps(2), transform 0.05s steps(2);
+}
+
+/* 5. hover：翻转内阴影，模拟方块被按下 */
+[data-theme="pixel"] button:hover,
+[data-theme="pixel"] a[class*="border"]:hover,
+[data-theme="pixel"] label:hover {
+  box-shadow: var(--pixel-shadow-pressed);
+}
+
+/* 6. active：轻微下移 */
+[data-theme="pixel"] button:active,
+[data-theme="pixel"] a[class*="border"]:active {
+  transform: translateY(1px);
+  box-shadow: var(--pixel-shadow-pressed);
+}
+
+/* 7. 顶部导航栏像素方块样式 */
+[data-theme="pixel"] header {
+  background-color: var(--header-bg) !important;
+  border-bottom: var(--pixel-border) !important;
+  backdrop-filter: none !important;
+  box-shadow: var(--pixel-shadow-raised);
+}
+
+/* 8. 侧边栏像素方块样式 */
+[data-theme="pixel"] aside {
+  background-color: var(--sidebar-bg) !important;
+  border-right: var(--pixel-border) !important;
+}
+
+/* 9. 页脚像素方块样式 */
+[data-theme="pixel"] footer {
+  background-color: var(--footer-bg) !important;
+  border-top: var(--pixel-border) !important;
+}
+
+/* 10. 主题切换按钮特殊配色 */
+[data-theme="pixel"] button[aria-label*="主题"] {
+  background-color: #b8a888 !important;
+}
+[data-theme="pixel"] button[aria-label*="主题"]:hover {
+  background-color: #a0c93d !important;
+}
+
+/* 11. 像素滚动条 */
+[data-theme="pixel"] ::-webkit-scrollbar {
+  width: 16px;
+  height: 16px;
+}
+[data-theme="pixel"] ::-webkit-scrollbar-track {
+  background: #d4cbb8;
+  border-left: 2px solid #3d3020;
+}
+[data-theme="pixel"] ::-webkit-scrollbar-thumb {
+  background: #8a7a60;
+  border: 2px solid #3d3020;
+  box-shadow: inset 2px 2px 0 rgba(255,255,255,0.3), inset -2px -2px 0 rgba(0,0,0,0.2);
+  min-height: 32px;
+}
+[data-theme="pixel"] ::-webkit-scrollbar-thumb:hover {
+  background: #a09070;
+}
+[data-theme="pixel"] ::-webkit-scrollbar-thumb:active {
+  background: #6b5a40;
+  box-shadow: inset -2px -2px 0 rgba(255,255,255,0.3), inset 2px 2px 0 rgba(0,0,0,0.2);
+}
+[data-theme="pixel"] ::-webkit-scrollbar-corner {
+  background: #d4cbb8;
+  border-top: 2px solid #3d3020;
+  border-left: 2px solid #3d3020;
+}
+[data-theme="pixel"] * {
+  scrollbar-width: auto;
+  scrollbar-color: #8a7a60 #d4cbb8;
+}
+
+/* 12. 选中文字像素风格 */
+[data-theme="pixel"] ::selection {
+  background: #5d7c15;
+  color: #ffffff;
+}
+
+/* 13. 链接 hover 像素下划线 */
+[data-theme="pixel"] a:not([class*="border"]):hover {
+  text-decoration: underline;
+  text-decoration-style: solid;
+  text-underline-offset: 2px;
+}
+
+/* Dark 主题网格背景（Hero 风格） */
+[data-theme="dark"] body {
+  background-image:
+    linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
 :root {
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  color: #172033;
-  background: #f7f9fc;
+  font-family: var(--font-body);
+  color: var(--text-primary);
+  background: var(--bg);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -12,31 +246,31 @@
 }
 
 * { box-sizing: border-box; }
-html { min-width: 320px; background: #f7f9fc; }
-body { margin: 0; min-width: 320px; min-height: 100vh; }
+html { min-width: 320px; background: var(--bg); }
+body { margin: 0; min-width: 320px; min-height: 100vh; background: var(--bg); color: var(--text-primary); }
 button, input { font: inherit; }
 button { cursor: pointer; }
 a { color: inherit; text-decoration: none; }
 
 .markdown-content {
-  color: #536078;
+  color: var(--text-muted);
   font-size: 0.95rem;
   line-height: 1.8;
 }
 .markdown-content h1,
 .markdown-content h2,
 .markdown-content h3 {
-  color: #172033;
+  color: var(--text-primary);
   font-weight: 700;
   letter-spacing: -0.02em;
 }
 .markdown-content h1 { margin: 0 0 1.5rem; font-size: 1.8rem; }
-.markdown-content h2 { scroll-margin-top: 5.5rem; margin: 2.5rem 0 0.75rem; padding-top: 0.5rem; font-size: 1.2rem; border-top: 1px solid #e6eaf1; }
+.markdown-content h2 { scroll-margin-top: 5.5rem; margin: 2.5rem 0 0.75rem; padding-top: 0.5rem; font-size: 1.2rem; border-top: 1px solid var(--border); }
 .markdown-content h3 { margin: 1.5rem 0 0.5rem; font-size: 1rem; }
 .markdown-content p { margin: 0.7rem 0; }
 .markdown-content ul, .markdown-content ol { margin: 0.75rem 0; padding-left: 1.4rem; }
 .markdown-content li { margin: 0.3rem 0; }
-.markdown-content code { border-radius: 4px; background: #eef2f7; padding: 0.12rem 0.35rem; color: #334155; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.84em; }
+.markdown-content code { border-radius: 4px; background: var(--hover-bg); padding: 0.12rem 0.35rem; color: var(--text-secondary); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.84em; }
 .markdown-content pre { position: relative; overflow-x: auto; margin: 1rem 0; border: 1px solid #28374a; border-radius: 6px; background: #172033; padding: 1rem; color: #dbe7f5; }
 .markdown-content pre:has(code[data-language]) { padding-top: 2.7rem; }
 .markdown-content pre code { display: block; min-width: max-content; background: transparent; padding: 0; color: inherit; font-size: 0.82rem; line-height: 1.7; }
@@ -44,11 +278,11 @@ a { color: inherit; text-decoration: none; }
 .markdown-content .code-copy-button { position: absolute; z-index: 1; top: 0.28rem; right: 0.35rem; display: inline-flex; width: 1.75rem; height: 1.3rem; align-items: center; justify-content: center; border: 0; border-radius: 3px; background: transparent; color: #91a4ba; }
 .markdown-content .code-copy-button:hover { background: #28374a; color: #e6edf3; }
 .markdown-content table { display: block; width: max-content; max-width: 100%; overflow-x: auto; border-collapse: collapse; font-size: 0.875rem; }
-.markdown-content th, .markdown-content td { border: 1px solid #dfe5ec; padding: 0.55rem 0.75rem; text-align: left; }
-.markdown-content th { background: #f6f8fa; color: #334155; font-weight: 600; }
+.markdown-content th, .markdown-content td { border: 1px solid var(--border); padding: 0.55rem 0.75rem; text-align: left; }
+.markdown-content th { background: var(--hover-bg); color: var(--text-secondary); font-weight: 600; }
 .markdown-content img { max-width: 100%; height: auto; }
-.markdown-content blockquote { margin: 1rem 0; border-left: 3px solid #8da8ca; padding-left: 1rem; color: #64748b; }
-.markdown-content a { color: #2e5d94; text-decoration: underline; text-underline-offset: 2px; }
+.markdown-content blockquote { margin: 1rem 0; border-left: 3px solid var(--accent); padding-left: 1rem; color: var(--text-muted); }
+.markdown-content a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
 
 @media (max-width: 640px) {
   .markdown-content h2 { margin-top: 2rem; }

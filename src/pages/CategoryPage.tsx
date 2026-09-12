@@ -11,14 +11,14 @@ export function CategoryPage({ title, description }: CategoryPageProps) {
   return (
     <div>
       <Breadcrumb items={[{ label: title }]} />
-      <div className="border-b border-slate-200 pb-7">
-        <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+      <div className="border-b border-[var(--border)] pb-7">
+        <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-faint)]">
           Knowledge section
         </p>
-        <h1 className="mt-3 text-3xl font-semibold tracking-[-0.035em] text-slate-950">
+        <h1 className="mt-3 text-3xl font-semibold tracking-[-0.035em] text-[var(--text-primary)]">
           {title}
         </h1>
-        <p className="mt-2 text-sm text-slate-500">{description}</p>
+        <p className="mt-2 text-sm text-[var(--text-muted)]">{description}</p>
       </div>
       <div className="mt-7">
         <EmptyState

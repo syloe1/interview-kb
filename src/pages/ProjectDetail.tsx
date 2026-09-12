@@ -217,17 +217,17 @@ export function ProjectDetail() {
         items={[{ label: 'Projects', path: '/projects' }, { label: project.name }]}
       />
 
-      <div className="border-b border-slate-200 pb-7">
+      <div className="border-b border-[var(--border)] pb-7">
         <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-start">
           <div>
-            <div className="flex items-center gap-2 text-xs font-medium text-emerald-700">
+            <div className="flex items-center gap-2 text-xs font-medium text-emerald-500">
               <CircleDot size={13} fill="currentColor" aria-hidden="true" /> Active
               project
             </div>
-            <h1 className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-slate-950 sm:text-4xl">
+            <h1 className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-[var(--text-primary)] sm:text-4xl">
               {project.name}
             </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-500">
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--text-muted)]">
               {project.description}
             </p>
           </div>
@@ -235,7 +235,7 @@ export function ProjectDetail() {
             href="https://github.com/"
             target="_blank"
             rel="noreferrer"
-            className="inline-flex h-9 shrink-0 items-center gap-2 border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 hover:border-slate-300 hover:text-slate-900"
+            className="inline-flex h-9 shrink-0 items-center gap-2 border border-[var(--border)] bg-[var(--card-bg)] px-3 text-xs font-medium text-[var(--text-secondary)] hover:border-[var(--border-active)] hover:text-[var(--text-primary)]"
           >
             View repository <ArrowUpRight size={14} aria-hidden="true" />
           </a>
@@ -244,7 +244,7 @@ export function ProjectDetail() {
           {project.tags.map((tag) => (
             <span
               key={tag}
-              className="rounded border border-slate-200 bg-slate-50 px-2 py-1 font-mono text-[10px] font-medium text-slate-500"
+              className="rounded border border-[var(--border)] bg-[var(--hover-bg)] px-2 py-1 font-mono text-[10px] font-medium text-[var(--text-muted)]"
             >
               {tag}
             </span>
@@ -253,24 +253,24 @@ export function ProjectDetail() {
       </div>
 
       <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_220px] lg:items-start">
-        <article className="min-w-0 border border-slate-200 bg-white px-5 py-6 sm:px-8 sm:py-8">
-          <div className="mb-7 flex items-center gap-2 border-b border-slate-100 pb-5 text-xs text-slate-400">
+        <article className="min-w-0 border border-[var(--border)] bg-[var(--card-bg)] px-5 py-6 sm:px-8 sm:py-8">
+          <div className="mb-7 flex items-center gap-2 border-b border-[var(--border-light)] pb-5 text-xs text-[var(--text-faint)]">
             <BookMarked size={15} aria-hidden="true" />
             <span>
               Notes loaded from{' '}
-              <code className="font-mono text-[11px] text-slate-500">
+              <code className="font-mono text-[11px] text-[var(--text-muted)]">
                 src/content/projects/{markdownSource.fileName}
               </code>
             </span>
           </div>
           <div className="markdown-content">
             {isLoading && (
-              <p className="py-12 text-center text-sm text-slate-400">
+              <p className="py-12 text-center text-sm text-[var(--text-faint)]">
                 Loading project notes...
               </p>
             )}
             {loadError && (
-              <p className="border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+              <p className="border border-red-300 bg-red-50 p-4 text-sm text-red-700">
                 {loadError}
               </p>
             )}
@@ -287,13 +287,13 @@ export function ProjectDetail() {
         </article>
 
         <aside className="hidden lg:sticky lg:top-[92px] lg:block">
-          <div className="border border-slate-200 bg-white p-4">
-            <div className="flex items-center gap-2 text-xs font-semibold text-slate-700">
-              <ListTree size={15} className="text-[#2e5d94]" aria-hidden="true" /> On this
+          <div className="border border-[var(--border)] bg-[var(--card-bg)] p-4">
+            <div className="flex items-center gap-2 text-xs font-semibold text-[var(--text-secondary)]">
+              <ListTree size={15} className="text-[var(--accent)]" aria-hidden="true" /> On this
               page
             </div>
             <nav
-              className="mt-4 max-h-[calc(100vh-160px)] overflow-y-auto border-l border-slate-200 pr-1"
+              className="mt-4 max-h-[calc(100vh-160px)] overflow-y-auto border-l border-[var(--border)] pr-1"
               aria-label="Project sections"
             >
               {tableOfContents.map((item) => (
@@ -301,7 +301,7 @@ export function ProjectDetail() {
                   key={item.id}
                   type="button"
                   onClick={() => scrollToSection(item.id)}
-                  className="block w-full border-l-2 border-transparent py-1.5 pl-3 text-left text-xs leading-5 text-slate-400 outline-none transition-colors hover:border-[#2e5d94] hover:text-[#2e5d94] focus-visible:border-[#2e5d94] focus-visible:text-[#2e5d94]"
+                  className="block w-full border-l-2 border-transparent py-1.5 pl-3 text-left text-xs leading-5 text-[var(--text-faint)] outline-none transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)] focus-visible:border-[var(--accent)] focus-visible:text-[var(--accent)]"
                 >
                   {item.label}
                 </button>
@@ -325,16 +325,16 @@ export function ProjectDetail() {
 function ProjectNotFound({ message }: { message: string }) {
   return (
     <div className="flex min-h-[55vh] flex-col items-center justify-center text-center">
-      <p className="font-mono text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+      <p className="font-mono text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-faint)]">
         Project not found
       </p>
-      <h1 className="mt-4 text-2xl font-semibold text-slate-900">
+      <h1 className="mt-4 text-2xl font-semibold text-[var(--text-primary)]">
         The project page is unavailable.
       </h1>
-      <p className="mt-3 text-sm text-slate-500">{message}</p>
+      <p className="mt-3 text-sm text-[var(--text-muted)]">{message}</p>
       <Link
         to="/projects"
-        className="mt-6 inline-flex items-center gap-2 border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+        className="mt-6 inline-flex items-center gap-2 border border-[var(--border)] bg-[var(--card-bg)] px-3.5 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--hover-bg)]"
       >
         <ArrowLeft size={15} aria-hidden="true" /> Back to projects
       </Link>

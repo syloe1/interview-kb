@@ -40,9 +40,13 @@ export const bookmarkCategories: BookmarkCategory[] = [
     title: '有趣的',
     links: [
       { label: 'GitHub', url: 'https://github.com/' },
+      { label: 'go语言设计与实现', url: 'https://draven.co/golang/' },
+      { label: 'go语言圣经', url: 'https://gopl-zh.github.io/index.html' },
       { label: 'miniob', url: 'https://oceanbase.github.io/miniob/' },
       { label: 'arxiv', url: 'https://arxiv.org/list/cs.SE/recent' },
       { label: '极客兔兔', url: 'https://geektutu.com/books/7days-golang' },
+
+
     ],
   },
 ];

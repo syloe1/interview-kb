@@ -105,20 +105,20 @@ export function KnowledgeCategoryPage({
   return (
     <div>
       <Breadcrumb items={[{ label: title }]} />
-      <div className="flex flex-col justify-between gap-3 border-b border-slate-200 pb-7 sm:flex-row sm:items-end">
+      <div className="flex flex-col justify-between gap-3 border-b border-[var(--border)] pb-7 sm:flex-row sm:items-end">
         <div>
-          <div className="flex items-center gap-2 text-[#2e5d94]">
+          <div className="flex items-center gap-2 text-[var(--accent)]">
             <Icon size={17} aria-hidden="true" />
             <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em]">
               Knowledge section
             </span>
           </div>
-          <h1 className="mt-3 text-3xl font-semibold tracking-[-0.035em] text-slate-950">
+          <h1 className="mt-3 text-3xl font-semibold tracking-[-0.035em] text-[var(--text-primary)]">
             {title}
           </h1>
-          <p className="mt-2 text-sm text-slate-500">{description}</p>
+          <p className="mt-2 text-sm text-[var(--text-muted)]">{description}</p>
         </div>
-        <span className="font-mono text-xs text-slate-400">
+        <span className="font-mono text-xs text-[var(--text-faint)]">
           {notes.length.toString().padStart(2, '0')} notes
         </span>
       </div>
@@ -136,18 +136,18 @@ export function KnowledgeCategoryPage({
             <Link
               key={note.id}
               to={`/${category}/${note.id}`}
-              className="group block border border-slate-200 bg-white p-5 transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-[0_8px_24px_rgba(30,52,80,0.08)] sm:p-6"
+              className="group block border border-[var(--border)] bg-[var(--card-bg)] p-5 transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:border-[var(--border-active)] hover:shadow-[0_8px_24px_rgba(30,52,80,0.08)] sm:p-6"
             >
               <div className="flex items-start gap-3">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-[#edf3f9] text-[#2e5d94]">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-[var(--accent-light)] text-[var(--accent)]">
                   <FileText size={17} strokeWidth={1.8} aria-hidden="true" />
                 </span>
                 <div className="min-w-0">
-                  <h2 className="text-base font-semibold text-slate-900 group-hover:text-[#2e5d94]">
+                  <h2 className="text-base font-semibold text-[var(--text-primary)] group-hover:text-[var(--accent)]">
                     {note.title}
                   </h2>
-                  <p className="mt-2 text-sm leading-6 text-slate-500">{note.summary}</p>
-                  <span className="mt-3 inline-block font-mono text-[10px] uppercase tracking-[0.08em] text-slate-400">
+                  <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">{note.summary}</p>
+                  <span className="mt-3 inline-block font-mono text-[10px] uppercase tracking-[0.08em] text-[var(--text-faint)]">
                     Open note
                   </span>
                 </div>

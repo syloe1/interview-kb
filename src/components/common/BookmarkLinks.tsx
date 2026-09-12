@@ -3,15 +3,15 @@ import { bookmarkCategories } from '../../data/bookmarks';
 
 export function BookmarkLinks() {
   return (
-    <section className="mt-12 border-t border-slate-200 pt-10">
+    <section className="mt-12 border-t border-[var(--border)] pt-10">
       <div className="mb-6 flex items-end justify-between">
         <div>
-          <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+          <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-faint)]">
             Useful links
           </p>
-          <h2 className="mt-1 text-lg font-semibold text-slate-900">常用网站</h2>
+          <h2 className="mt-1 text-lg font-semibold text-[var(--text-primary)]">常用网站</h2>
         </div>
-        <span className="hidden text-xs text-slate-400 sm:block">
+        <span className="hidden text-xs text-[var(--text-faint)] sm:block">
           点击在新标签页打开
         </span>
       </div>
@@ -19,7 +19,7 @@ export function BookmarkLinks() {
       <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
         {bookmarkCategories.map((category) => (
           <div key={category.title}>
-            <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
+            <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-faint)]">
               {category.title}
             </h3>
             <ul className="space-y-2.5">
@@ -29,7 +29,7 @@ export function BookmarkLinks() {
                     href={link.url}
                     target="_blank"
                     rel="noreferrer"
-                    className="group inline-flex items-center gap-1.5 text-sm text-slate-600 transition-colors hover:text-[#2e5d94]"
+                    className="group inline-flex items-center gap-1.5 text-sm text-[var(--text-secondary)] transition-colors hover:text-[var(--accent)]"
                   >
                     {link.label}
                     <ExternalLink

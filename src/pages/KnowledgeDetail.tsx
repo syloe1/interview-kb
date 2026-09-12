@@ -86,18 +86,18 @@ export function KnowledgeDetail({ category }: KnowledgeDetailProps) {
   if (!source) {
     return (
       <div className="flex min-h-[55vh] flex-col items-center justify-center text-center">
-        <p className="font-mono text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+        <p className="font-mono text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-faint)]">
           Note not found
         </p>
-        <h1 className="mt-4 text-2xl font-semibold text-slate-900">
+        <h1 className="mt-4 text-2xl font-semibold text-[var(--text-primary)]">
           The note page is unavailable.
         </h1>
-        <p className="mt-3 text-sm text-slate-500">
+        <p className="mt-3 text-sm text-[var(--text-muted)]">
           No Markdown file matches “{noteId}”.
         </p>
         <Link
           to={`/${category}`}
-          className="mt-6 inline-flex items-center gap-2 border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          className="mt-6 inline-flex items-center gap-2 border border-[var(--border)] bg-[var(--card-bg)] px-3.5 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--hover-bg)]"
         >
           <ArrowLeft size={15} aria-hidden="true" /> Back to {categoryLabel}
         </Link>
@@ -110,22 +110,22 @@ export function KnowledgeDetail({ category }: KnowledgeDetailProps) {
       <Breadcrumb
         items={[{ label: categoryLabel, path: `/${category}` }, { label: title }]}
       />
-      <div className="border-b border-slate-200 pb-7">
-        <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+      <div className="border-b border-[var(--border)] pb-7">
+        <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-faint)]">
           Knowledge note
         </p>
-        <h1 className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-slate-950 sm:text-4xl">
+        <h1 className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-[var(--text-primary)] sm:text-4xl">
           {title}
         </h1>
       </div>
 
       <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_220px] lg:items-start">
-        <article className="min-w-0 border border-slate-200 bg-white px-5 py-6 sm:px-8 sm:py-8">
-          <div className="mb-7 flex items-center gap-2 border-b border-slate-100 pb-5 text-xs text-slate-400">
+        <article className="min-w-0 border border-[var(--border)] bg-[var(--card-bg)] px-5 py-6 sm:px-8 sm:py-8">
+          <div className="mb-7 flex items-center gap-2 border-b border-[var(--border-light)] pb-5 text-xs text-[var(--text-faint)]">
             <BookMarked size={15} aria-hidden="true" />
             <span>
               Notes loaded from{' '}
-              <code className="font-mono text-[11px] text-slate-500">
+              <code className="font-mono text-[11px] text-[var(--text-muted)]">
                 {source.path.replace('../', 'src/')}
               </code>
             </span>
@@ -136,20 +136,20 @@ export function KnowledgeDetail({ category }: KnowledgeDetailProps) {
         </article>
 
         <aside className="hidden lg:sticky lg:top-[92px] lg:block">
-          <div className="border border-slate-200 bg-white p-4">
-            <div className="flex items-center gap-2 text-xs font-semibold text-slate-700">
-              <ListTree size={15} className="text-[#2e5d94]" aria-hidden="true" /> On this
+          <div className="border border-[var(--border)] bg-[var(--card-bg)] p-4">
+            <div className="flex items-center gap-2 text-xs font-semibold text-[var(--text-secondary)]">
+              <ListTree size={15} className="text-[var(--accent)]" aria-hidden="true" /> On this
               page
             </div>
             <nav
-              className="mt-4 max-h-[calc(100vh-160px)] overflow-y-auto border-l border-slate-200 pr-1"
+              className="mt-4 max-h-[calc(100vh-160px)] overflow-y-auto border-l border-[var(--border)] pr-1"
               aria-label="Note sections"
             >
               {tableOfContents.map((item) => (
                 <a
                   key={item.id}
                   href={`#${item.id}`}
-                  className="block border-l-2 border-transparent py-1.5 pl-3 text-xs leading-5 text-slate-400 outline-none transition-colors hover:border-[#2e5d94] hover:text-[#2e5d94]"
+                  className="block border-l-2 border-transparent py-1.5 pl-3 text-xs leading-5 text-[var(--text-faint)] outline-none transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
                 >
                   {item.label}
                 </a>
