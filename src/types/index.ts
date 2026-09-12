@@ -20,3 +20,13 @@ export interface Project {
   updatedAt: string       // 更新时间
   moduleCount: number     // 模块数量
 }
+
+export interface BookmarkLink {
+  label: string   // 链接显示文字
+  url: string     // 跳转地址
+}
+
+export interface BookmarkCategory {
+  title: string       // 分类标题
+  links: BookmarkLink[]  // 该分类下的链接列表
+}

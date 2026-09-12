@@ -1,6 +1,7 @@
 import { ArrowRight, BookOpen, CheckCircle2, Clock3, LibraryBig } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { navigationItems } from '../data/navigation';
+import { BookmarkLinks } from '../components/common/BookmarkLinks';
 
 const iconByLabel = {
   Projects: LibraryBig,
@@ -118,6 +119,8 @@ export function Home() {
           })}
         </div>
       </section>
+
+      <BookmarkLinks />
     </div>
   );
 }
