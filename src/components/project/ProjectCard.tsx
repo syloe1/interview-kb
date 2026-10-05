@@ -17,7 +17,9 @@ export function ProjectCard({ project }: ProjectCardProps) {
             <Boxes size={19} strokeWidth={1.8} aria-hidden="true" />
           </span>
           <div>
-            <h2 className="text-base font-semibold text-[var(--text-primary)]">{project.name}</h2>
+            <h2 className="text-base font-semibold text-[var(--text-primary)]">
+              {project.name}
+            </h2>
             <p className="mt-0.5 font-mono text-[11px] uppercase tracking-[0.1em] text-[var(--text-faint)]">
               {project.category}
             </p>

@@ -9,7 +9,9 @@ export function BookmarkLinks() {
           <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-faint)]">
             Useful links
           </p>
-          <h2 className="mt-1 text-lg font-semibold text-[var(--text-primary)]">常用网站</h2>
+          <h2 className="mt-1 text-lg font-semibold text-[var(--text-primary)]">
+            常用网站
+          </h2>
         </div>
         <span className="hidden text-xs text-[var(--text-faint)] sm:block">
           点击在新标签页打开

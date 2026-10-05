@@ -12,7 +12,9 @@ export function EmptyState({ title, description }: EmptyStateProps) {
         <Construction size={20} strokeWidth={1.8} aria-hidden="true" />
       </div>
       <h2 className="text-base font-semibold text-[var(--text-primary)]">{title}</h2>
-      <p className="mt-2 max-w-sm text-sm leading-6 text-[var(--text-muted)]">{description}</p>
+      <p className="mt-2 max-w-sm text-sm leading-6 text-[var(--text-muted)]">
+        {description}
+      </p>
     </div>
   );
 }

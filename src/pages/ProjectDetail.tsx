@@ -289,8 +289,8 @@ export function ProjectDetail() {
         <aside className="hidden lg:sticky lg:top-[92px] lg:block">
           <div className="border border-[var(--border)] bg-[var(--card-bg)] p-4">
             <div className="flex items-center gap-2 text-xs font-semibold text-[var(--text-secondary)]">
-              <ListTree size={15} className="text-[var(--accent)]" aria-hidden="true" /> On this
-              page
+              <ListTree size={15} className="text-[var(--accent)]" aria-hidden="true" />{' '}
+              On this page
             </div>
             <nav
               className="mt-4 max-h-[calc(100vh-160px)] overflow-y-auto border-l border-[var(--border)] pr-1"

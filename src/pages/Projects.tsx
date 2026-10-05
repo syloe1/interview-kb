@@ -18,7 +18,9 @@ export function Projects() {
           <h1 className="mt-3 text-3xl font-semibold tracking-[-0.035em] text-[var(--text-primary)]">
             Projects
           </h1>
-          <p className="mt-2 text-sm text-[var(--text-muted)]">My projects and interview notes.</p>
+          <p className="mt-2 text-sm text-[var(--text-muted)]">
+            My projects and interview notes.
+          </p>
         </div>
         <span className="font-mono text-xs text-[var(--text-faint)]">
           {projects.length.toString().padStart(2, '0')} projects

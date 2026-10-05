@@ -19,7 +19,10 @@ export function Breadcrumb({ items }: BreadcrumbProps) {
         <span className="flex items-center gap-1.5" key={item.label}>
           {index > 0 && <ChevronRight size={13} aria-hidden="true" />}
           {item.path ? (
-            <Link className="transition-colors hover:text-[var(--text-secondary)]" to={item.path}>
+            <Link
+              className="transition-colors hover:text-[var(--text-secondary)]"
+              to={item.path}
+            >
               {item.label}
             </Link>
           ) : (
