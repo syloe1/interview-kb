@@ -1,4 +1,11 @@
-import { ArrowRight, BookOpen, CheckCircle2, Clock3, LibraryBig } from 'lucide-react';
+import {
+  ArrowRight,
+  BookOpen,
+  CheckCircle2,
+  Clock3,
+  FileSpreadsheet,
+  LibraryBig,
+} from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { navigationItems } from '../data/navigation';
 import { BookmarkLinks } from '../components/common/BookmarkLinks';
@@ -17,6 +24,9 @@ const iconByLabel = {
   K8s: Clock3,
   Linux: Clock3,
   思考: Clock3,
+  Python: Clock3,
+  Qt: Clock3,
+  投递: FileSpreadsheet,
 };
 
 export function Home() {
@@ -63,7 +73,9 @@ export function Home() {
             <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-faint)]">
               Browse by topic
             </p>
-            <h2 className="mt-1 text-lg font-semibold text-[var(--text-primary)]">Knowledge map</h2>
+            <h2 className="mt-1 text-lg font-semibold text-[var(--text-primary)]">
+              Knowledge map
+            </h2>
           </div>
           <span className="hidden text-xs text-[var(--text-faint)] sm:block">
             {navigationItems.length} sections · 1 active

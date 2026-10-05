@@ -15,6 +15,9 @@ import { KnowledgeDetail } from './pages/KnowledgeDetail';
 import { K8s } from './pages/K8s';
 import { Linux } from './pages/Linux';
 import { Thinking } from './pages/Thinking';
+import { Python } from './pages/Python';
+import { Qt } from './pages/Qt';
+import { Applications } from './pages/Applications';
 
 const ProjectDetail = lazy(() =>
   import('./pages/ProjectDetail').then((module) => ({ default: module.ProjectDetail }))
@@ -74,6 +77,11 @@ function App() {
             path="/thinking/:noteId"
             element={<KnowledgeDetail category="thinking" />}
           />
+          <Route path="/python" element={<Python />} />
+          <Route path="/python/:noteId" element={<KnowledgeDetail category="python" />} />
+          <Route path="/qt" element={<Qt />} />
+          <Route path="/qt/:noteId" element={<KnowledgeDetail category="qt" />} />
+          <Route path="/applications" element={<Applications />} />
           <Route path="/home" element={<Navigate to="/" replace />} />
           <Route path="*" element={<NotFound />} />
         </Route>

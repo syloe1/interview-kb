@@ -13,6 +13,7 @@ Interview-KB 是一个静态的个人面试知识库：
 - Tailwind CSS：页面样式
 - `react-markdown`：把 Markdown 转成页面
 - `highlight.js`：代码高亮
+- `xlsx`（SheetJS）：在浏览器里解析投递记录的 Excel 文件
 
 它没有后端、数据库和 API。Markdown 文件直接和前端代码一起打包，适合部署到 GitHub Pages。
 
@@ -91,6 +92,9 @@ src/App.tsx
 /projects/:projectId   -> ProjectDetail
 /k8s                    -> K8s
 /k8s/:noteId            -> KnowledgeDetail
+/python                 -> Python
+/python/:noteId         -> KnowledgeDetail
+/applications           -> Applications
 ```
 
 ### 第二步：页面骨架
@@ -221,10 +225,13 @@ src/
 │   └── project/                     # 项目卡片和项目区块
 ├── pages/                           # 路由页面
 ├── content/projects/*.md            # 项目正文
-└── content/knowledge/**/*.md       # 知识正文
+├── content/knowledge/<分类>/*.md    # 知识正文，一个子目录对应一个分类
+└── content/knowledge/interview/找工作.xls   # 投递记录表格，由 /applications 页面读取
 ```
 
-## 5. 两种内容模型
+`content/knowledge/` 下的子目录名就是分类名，例如 `k8s/`、`python/`、`qt/`。目录名和 URL 段、`KnowledgeCategory` 联合类型三者要保持对应。
+
+## 5. 三种内容模型
 
 ### Projects：元数据 + Markdown
 
@@ -264,11 +271,17 @@ Projects 页面会自动读取 `##` 标题生成右侧目录。
 已经接入通用加载器的分类包括：
 
 ```text
+src/content/knowledge/go/
+src/content/knowledge/cpp/
+src/content/knowledge/database/
 src/content/knowledge/mq/
 src/content/knowledge/algorithms/
 src/content/knowledge/interview/
 src/content/knowledge/k8s/
 src/content/knowledge/linux/
+src/content/knowledge/thinking/
+src/content/knowledge/python/
+src/content/knowledge/qt/
 ```
 
 例如：
@@ -283,14 +296,44 @@ src/content/knowledge/k8s/deployment.md
 http://localhost:5173/#/k8s/deployment
 ```
 
-当前 `Go`、`C++`、`Database`、`八股` 页面还是空状态页面。虽然仓库中存在一些直接放在 `src/content/knowledge/` 根目录的 Markdown 文件，但当前通用分类加载器不会把它们自动归入这些分类。后续学习扩展时，建议使用下面的目录形式：
+`八股` 页面还是空状态页面。虽然仓库中存在一些直接放在 `src/content/knowledge/` 根目录的 Markdown 文件，但当前通用分类加载器不会把它们自动归入这些分类。后续学习扩展时，建议使用下面的目录形式：
 
 ```text
-src/content/knowledge/go/*.md
-src/content/knowledge/cpp/*.md
-src/content/knowledge/database/*.md
 src/content/knowledge/fundamentals/*.md
 ```
+
+#### 新增一个知识分类要改哪些文件
+
+以 `qt` 为例，只加 Markdown 目录还不够，还要让路由认识它：
+
+1. 建目录并放笔记：`src/content/knowledge/qt/qt.md`。
+2. 新建页面 `src/pages/Qt.tsx`，把 `category="qt"` 传给 `KnowledgeCategoryPage`。
+3. `src/App.tsx` 注册两条路由：`/qt` 和 `/qt/:noteId`。
+4. `src/pages/KnowledgeCategory.tsx` 的 `KnowledgeCategory` 联合类型补上 `'qt'`。
+5. `src/pages/KnowledgeDetail.tsx` 的 `categoryLabels` 补上显示名。
+6. `src/data/navigation.ts` 加导航项；`src/pages/Home.tsx` 的 `iconByLabel` 也要加同名 key，否则首页卡片会渲染出空图标。
+
+注意第 6 步容易漏：首页图标是按导航项的 `label` 查表的，联合类型不会拦住漏配的 key。
+
+### 投递情况：运行时解析 Excel
+
+`投递情况` 页（`/applications`）是第三种内容模型：**不在构建期转换，而是浏览器里现读 Excel**。
+
+```text
+src/content/knowledge/interview/找工作.xls
+  -> Applications.tsx 用 ?url 拿到文件地址
+  -> fetch 下载成 ArrayBuffer
+  -> 动态 import('xlsx') 解析
+  -> 整理成 标题 / 表头 / 数据行
+  -> 渲染成 HTML 表格
+```
+
+几个关键点：
+
+- 文件用 `?url` 导入，Vite 会把它当静态资源原样复制进 `dist`。**这意味着任何访问站点的人都能下载这个 xls**，别往里放不想公开的东西。
+- `import('xlsx')` 写成动态导入，SheetJS 会被单独打包成一个 chunk（约 500KB），只在打开这个页面时才加载，不拖慢首页。
+- 读取时用 `sheet_to_json(..., { raw: false })`，取单元格的显示文本。用默认的 `raw: true` 的话，日期会变成 `46273` 这种 Excel 序列号。
+- 表头是猜的：首行只有一个非空单元格就当合并标题（如「秋招」）；剩下第一行不含数字才当表头。所以「面经」表没有表头，整表都是数据。
 
 ## 6. TypeScript 学习重点
 
@@ -432,6 +475,8 @@ src/content/projects/你的项目名.md
 - 文件名是否和 URL 最后一段一致。
 - 分类目录名是否使用小写 slug。
 
+分类目录名和分类名的大小写不一致时不会报错：`KnowledgeCategory` 比较路径前会统一转成小写，所以 `Python/` 目录能被 `/python` 路由找到。新目录还是建议用全小写，少一层心智负担。
+
 ### 新文件没有出现
 
 尝试：
@@ -441,6 +486,15 @@ src/content/projects/你的项目名.md
 3. 刷新页面。
 4. 重启 `npm run dev`。
 5. 运行 `npm run build` 查看 TypeScript 错误。
+
+### 投递情况页面的表格不对
+
+`/applications` 的表头和日期是**猜出来**的，改 Excel 后先看这两条：
+
+- **某一行被当成了表头**：判断规则是「首行不含数字就当表头」。如果表头里带数字（比如「2024 届」），或者数据行一个数字都没有，就会猜错。改 `Applications.tsx` 里的 `hasHeader` 判断。
+- **日期显示成 46273**：说明读到了原始序列号。确认 `sheet_to_json` 带着 `raw: false`。
+- **多出一行「秋招」这样的标题**：这是故意保留的合并单元格标题，不是 bug。
+- **表格没更新**：页面有模块级缓存，改完 xls 要刷新页面（`sheetPromise` 只在首次进入时创建）。
 
 ### 页面标题不对
 

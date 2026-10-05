@@ -21,7 +21,9 @@ export type KnowledgeCategory =
   | 'interview'
   | 'k8s'
   | 'linux'
-  | 'thinking';
+  | 'thinking'
+  | 'python'
+  | 'qt';
 // 组件Props
 interface KnowledgeCategoryProps {
   category: KnowledgeCategory;
@@ -77,10 +79,11 @@ function getNoteSummary(markdown: string): string {
 }
 //获取笔记列表
 function getNotes(category: KnowledgeCategory): KnowledgeNote[] {
-  const categoryPrefix = `../content/knowledge/${category}/`;
+  // 统一转小写比较，避免目录名大小写不一致（如 Python/）导致匹配不到
+  const categoryPrefix = `../content/knowledge/${category}/`.toLowerCase();
 
   return Object.entries(markdownModules)
-    .filter(([path]) => path.startsWith(categoryPrefix))
+    .filter(([path]) => path.toLowerCase().startsWith(categoryPrefix))
     .map(([path, markdown]) => {
       const fileName = getFileName(path);
       return {
@@ -146,7 +149,9 @@ export function KnowledgeCategoryPage({
                   <h2 className="text-base font-semibold text-[var(--text-primary)] group-hover:text-[var(--accent)]">
                     {note.title}
                   </h2>
-                  <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">{note.summary}</p>
+                  <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">
+                    {note.summary}
+                  </p>
                   <span className="mt-3 inline-block font-mono text-[10px] uppercase tracking-[0.08em] text-[var(--text-faint)]">
                     Open note
                   </span>

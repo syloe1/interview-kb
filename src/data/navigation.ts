@@ -79,4 +79,25 @@ export const navigationItems: NavigationItem[] = [
     icon: 'layers',
     countLabel: '1 note',
   },
+  {
+    label: 'Python',
+    path: '/python',
+    description: 'Python 语法、标准库和常用实践',
+    icon: 'terminal',
+    countLabel: '1 note',
+  },
+  {
+    label: 'Qt',
+    path: '/qt',
+    description: 'Qt 控件、信号槽和桌面端开发笔记',
+    icon: 'braces',
+    countLabel: '1 note',
+  },
+  {
+    label: '投递',
+    path: '/applications',
+    description: '秋招投递记录和每日进展，直接读取 Excel 渲染',
+    icon: 'folder',
+    countLabel: 'Excel',
+  },
 ];

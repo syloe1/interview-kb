@@ -23,7 +23,7 @@ const markdownModules = import.meta.glob<string>('../content/knowledge/**/*.md',
   import: 'default',
   eager: true,
 });
-// Record<K, V> Ts的工具泛型， 
+// Record<K, V> Ts的工具泛型，
 const categoryLabels: Record<string, string> = {
   go: 'Go',
   cpp: 'C++',
@@ -34,6 +34,8 @@ const categoryLabels: Record<string, string> = {
   k8s: 'K8s',
   linux: 'Linux',
   thinking: '思考',
+  python: 'Python',
+  qt: 'Qt',
 };
 //生成目录
 function getTableOfContents(markdown: string): TableOfContentsItem[] {
@@ -138,8 +140,8 @@ export function KnowledgeDetail({ category }: KnowledgeDetailProps) {
         <aside className="hidden lg:sticky lg:top-[92px] lg:block">
           <div className="border border-[var(--border)] bg-[var(--card-bg)] p-4">
             <div className="flex items-center gap-2 text-xs font-semibold text-[var(--text-secondary)]">
-              <ListTree size={15} className="text-[var(--accent)]" aria-hidden="true" /> On this
-              page
+              <ListTree size={15} className="text-[var(--accent)]" aria-hidden="true" />{' '}
+              On this page
             </div>
             <nav
               className="mt-4 max-h-[calc(100vh-160px)] overflow-y-auto border-l border-[var(--border)] pr-1"

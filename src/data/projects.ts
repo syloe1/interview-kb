@@ -162,6 +162,42 @@ export const projects: Project[] = [
     moduleCount: 0,
   },
   {
+    id: 'disk',
+    name: 'Cloud Disk',
+    category: 'Go microservices',
+    description:
+      'A Kratos-based cloud disk service with file and user microservices, gRPC/HTTP entrypoints, and layered biz/data code.',
+    tags: ['Go', 'Kratos', 'gRPC', 'Microservices'],
+    path: '/projects/disk',
+    status: 'active',
+    updatedAt: 'Updated recently',
+    moduleCount: 10,
+  },
+  {
+    id: 'powercontext',
+    name: 'PowerContext',
+    category: 'Agent context system',
+    description:
+      'Notes on a context management system for agents: scope isolation, evidence sources, immutable artifacts and revisions.',
+    tags: ['Context', 'Memory', 'Agent', 'Architecture'],
+    path: '/projects/powercontext',
+    status: 'active',
+    updatedAt: 'Updated recently',
+    moduleCount: 2,
+  },
+  {
+    id: 'tinywebserver',
+    name: 'TinyWebServer',
+    category: 'C++ web server',
+    description:
+      'A C++ web server walkthrough covering config parsing, logging, ring buffers, epoll, timers and the thread pool.',
+    tags: ['C++', 'epoll', 'HTTP', 'Reactor', 'Thread Pool'],
+    path: '/projects/tinywebserver',
+    status: 'active',
+    updatedAt: 'Updated recently',
+    moduleCount: 22,
+  },
+  {
     id: 'muduo',
     name: 'Muduo',
     category: 'C++ networking',
