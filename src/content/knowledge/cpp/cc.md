@@ -147,6 +147,13 @@ new (地址) 类(构造参数) // 不分配内存，在 addr 直接调用构造�
 - `nullptr` 关键字。
 - `#define NULL 0`：宏，仅做预处理替换为 0。
 
+### future invoke_result_t
+```
+`std::invoke_result_t<F>`：**不是处理完美转发**，是**推导调用 `F()` 的返回类型**
+`packaged_task`：不是把类型包装成`void()`，**packaged_task 负责绑定函数 + promise；外面的 lambda 才是把它包成 void 无参可调用对象**
+`future`：**`.get()`是阻塞拿结果**，future 对象本身是非阻塞句柄
+```
+
 ### lambda
 
 - `[this]`：捕获对象指针，lambda 内部通过指针访问成员，共享对象。
@@ -1330,3 +1337,19 @@ update stock set stock = stock - 1 where stock > 1;
 - 持续监听 kafka → 同时 ES 索引。
 - 监听 RabbitMQ 秒杀队列 → 异步创建秒杀记录。
 - 监听 binlog MQ 消息队列 → 消息创建最终业务记录。
+
+### SSO
+> SSO 的核心是**对象内部预留一块内置字符数组，短串直接存在对象体内，不分配堆内存**，你现在类里没有这块内部缓冲区。
+> SSO 常见设计：**共用一块内存空间（union）**，区分两种状态：
+
+- 短串模式：用对象内部的栈数组存字符，**不堆分配**；用长度标记处于 SSO 模式
+- 长串模式：堆分配，存堆指针、长度、容量
+**union 的大小 = 它最大成员的大小**
+**struct 的大小 ≥ 所有成员大小之和（因为内存对齐，会有填充 padding）**
+
+#### auto强制要求有初始值
+- 函数中没有 return 语句，那么 auto 会被自动推导为 void
+
+
+### mutex vs spinlock
+> 临界区短用 spinlock，长用 mutex；spinlock 是 CPU 换等待延迟，mutex 是上下文切换换 CPU
