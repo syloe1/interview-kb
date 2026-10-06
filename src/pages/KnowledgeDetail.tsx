@@ -6,6 +6,7 @@ import { toString } from 'mdast-util-to-string';
 import { unified } from 'unified';
 import { visit } from 'unist-util-visit';
 import remarkParse from 'remark-parse';
+import { knowledgeMarkdown } from '../data/knowledgeNotes';
 import { Breadcrumb } from '../components/common/Breadcrumb';
 import { MarkdownRenderer } from '../components/common/MarkdownRenderer';
 //Props
@@ -18,11 +19,6 @@ interface TableOfContentsItem {
   label: string;
 }
 
-const markdownModules = import.meta.glob<string>('../content/knowledge/**/*.md', {
-  query: '?raw',
-  import: 'default',
-  eager: true,
-});
 // Record<K, V> Ts的工具泛型，
 const categoryLabels: Record<string, string> = {
   go: 'Go',
@@ -59,7 +55,7 @@ function getModule(
   const normalizedCategory = category.toLowerCase();
   const normalizedNoteId = noteId.toLowerCase();
 
-  const match = Object.entries(markdownModules).find(([path]) => {
+  const match = Object.entries(knowledgeMarkdown).find(([path]) => {
     const segments = path.split('/');
     const fileName = segments.at(-1)?.replace(/\.md$/i, '').toLowerCase();
     return (

@@ -218,6 +218,7 @@ src/
 ├── App.css                          # 页面级样式入口，目前内容很少
 ├── types/index.ts                   # 共享类型
 ├── data/navigation.ts               # 导航和分类卡片数据
+├── data/knowledgeNotes.ts           # 知识 Markdown 的 glob + countNotes() 计数
 ├── data/projects.ts                 # Projects 元数据
 ├── components/
 │   ├── layout/                      # Layout、Header、Sidebar
@@ -314,6 +315,8 @@ src/content/knowledge/fundamentals/*.md
 6. `src/data/navigation.ts` 加导航项；`src/pages/Home.tsx` 的 `iconByLabel` 也要加同名 key，否则首页卡片会渲染出空图标。
 
 注意第 6 步容易漏：首页图标是按导航项的 `label` 查表的，联合类型不会拦住漏配的 key。
+
+导航项的 `countLabel` 不用手写。[src/data/navigation.ts](src/data/navigation.ts) 里写的是 `countNotes('qt')`，这个函数在 [src/data/knowledgeNotes.ts](src/data/knowledgeNotes.ts)：扫一遍 `src/content/knowledge/` 下的 Markdown，数出该分类目录里有多少篇，返回 `3 notes` 这种标签；目录不存在或没有 `.md` 时返回 `Coming soon`。首页卡片就是靠标签里有没有 `coming` 这个词来决定徽章颜色的，所以**加完笔记不用再去改数字**。
 
 ### 投递情况：运行时解析 Excel
 
@@ -486,6 +489,14 @@ src/content/projects/你的项目名.md
 3. 刷新页面。
 4. 重启 `npm run dev`。
 5. 运行 `npm run build` 查看 TypeScript 错误。
+
+### 分类里明明有笔记，首页卡片却显示 Coming soon
+
+首页卡片的标签来自 `countNotes(分类名)`，参数写错就数不到东西：
+
+- 拿 `src/data/navigation.ts` 里传的字符串，去和 `src/content/knowledge/` 下的目录名逐字对一遍，比如 `countNotes('interview')` 对应 `interview/`。
+- 目录名大小写不影响：`countNotes` 内部会转成小写再比，所以 `Python/` 能被 `countNotes('python')` 数到。但两边都写小写最省心。
+- 分类页（`/interview`）能列出笔记、首页却显示 `Coming soon` 时，基本就是这个参数对不上——因为分类页用的是 `KnowledgeCategory` 联合类型，写错了 TypeScript 会直接报错，首页这边只是个字符串。
 
 ### 投递情况页面的表格不对
 

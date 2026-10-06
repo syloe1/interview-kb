@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import type { NavIcon } from '../types';
+import { knowledgeMarkdown } from '../data/knowledgeNotes';
 import { Breadcrumb } from '../components/common/Breadcrumb';
 import { EmptyState } from '../components/common/EmptyState';
 // 分类联合类型
@@ -38,12 +39,6 @@ interface KnowledgeNote {
   summary: string;
   markdown: string;
 }
-
-const markdownModules = import.meta.glob<string>('../content/knowledge/**/*.md', {
-  query: '?raw',
-  import: 'default',
-  eager: true,
-});
 
 const iconMap: Record<NavIcon, LucideIcon> = {
   folder: FolderGit2,
@@ -82,7 +77,7 @@ function getNotes(category: KnowledgeCategory): KnowledgeNote[] {
   // 统一转小写比较，避免目录名大小写不一致（如 Python/）导致匹配不到
   const categoryPrefix = `../content/knowledge/${category}/`.toLowerCase();
 
-  return Object.entries(markdownModules)
+  return Object.entries(knowledgeMarkdown)
     .filter(([path]) => path.toLowerCase().startsWith(categoryPrefix))
     .map(([path, markdown]) => {
       const fileName = getFileName(path);
