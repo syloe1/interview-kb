@@ -10,6 +10,7 @@ import {
 import { Link } from 'react-router-dom';
 import type { NavIcon } from '../types';
 import { knowledgeMarkdown } from '../data/knowledgeNotes';
+import { getFileNameFromPath, getNoteSummary, getNoteTitle } from '../lib/markdown';
 import { Breadcrumb } from '../components/common/Breadcrumb';
 import { EmptyState } from '../components/common/EmptyState';
 // 分类联合类型
@@ -47,31 +48,6 @@ const iconMap: Record<NavIcon, LucideIcon> = {
   database: Database,
   layers: Layers3,
 };
-//提取文件名
-function getFileName(path: string): string {
-  return path.split('/').pop()?.replace(/\.md$/i, '') ?? '';
-}
-//提取标题
-function getNoteTitle(markdown: string, fallback: string): string {
-  const heading = markdown.match(/^#\s+(.+)$/m)?.[1]?.trim();
-  return heading || fallback;
-}
-//提取摘要
-function getNoteSummary(markdown: string): string {
-  const summary = markdown
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .find(
-      (line) =>
-        line &&
-        !line.startsWith('#') &&
-        !line.startsWith('>') &&
-        !line.startsWith('```') &&
-        !line.startsWith('<!--')
-    );
-
-  return summary || '这篇笔记暂时还没有摘要。';
-}
 //获取笔记列表
 function getNotes(category: KnowledgeCategory): KnowledgeNote[] {
   // 统一转小写比较，避免目录名大小写不一致（如 Python/）导致匹配不到
@@ -80,7 +56,7 @@ function getNotes(category: KnowledgeCategory): KnowledgeNote[] {
   return Object.entries(knowledgeMarkdown)
     .filter(([path]) => path.toLowerCase().startsWith(categoryPrefix))
     .map(([path, markdown]) => {
-      const fileName = getFileName(path);
+      const fileName = getFileNameFromPath(path);
       return {
         id: fileName.toLowerCase(),
         title: getNoteTitle(markdown, fileName),

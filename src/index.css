@@ -283,6 +283,20 @@ a { color: inherit; text-decoration: none; }
 .markdown-content img { max-width: 100%; height: auto; }
 .markdown-content blockquote { margin: 1rem 0; border-left: 3px solid var(--accent); padding-left: 1rem; color: var(--text-muted); }
 .markdown-content a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+/* 搜索跳转的目标只可能是 h2 或某个更深的标题，统一留出吸顶 Header 的高度 */
+.markdown-content :is(h1, h2, h3, h4, h5, h6) { scroll-margin-top: 5.5rem; }
+
+/* 搜索命中的关键词。详情页正文里的 <mark> 和搜索结果列表共用这一套样式 */
+.search-hit {
+  border-radius: 2px;
+  background: #fde68a;
+  color: #3f2d00;
+  padding: 0 1px;
+}
+[data-theme="dark"] .search-hit {
+  background: rgba(250, 204, 21, 0.28);
+  color: var(--text-primary);
+}
 
 @media (max-width: 640px) {
   .markdown-content h2 { margin-top: 2rem; }

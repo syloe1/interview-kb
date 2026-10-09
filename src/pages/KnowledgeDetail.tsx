@@ -1,52 +1,15 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { ArrowLeft, BookMarked, ListTree } from 'lucide-react';
-import GithubSlugger from 'github-slugger';
-import { Link, useParams } from 'react-router-dom';
-import { toString } from 'mdast-util-to-string';
-import { unified } from 'unified';
-import { visit } from 'unist-util-visit';
-import remarkParse from 'remark-parse';
-import { knowledgeMarkdown } from '../data/knowledgeNotes';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { categoryLabels, knowledgeMarkdown } from '../data/knowledgeNotes';
+import { getNoteTitle, getTableOfContents } from '../lib/markdown';
 import { Breadcrumb } from '../components/common/Breadcrumb';
 import { MarkdownRenderer } from '../components/common/MarkdownRenderer';
 //Props
 interface KnowledgeDetailProps {
   category: string;
 }
-//目录项
-interface TableOfContentsItem {
-  id: string;
-  label: string;
-}
 
-// Record<K, V> Ts的工具泛型，
-const categoryLabels: Record<string, string> = {
-  go: 'Go',
-  cpp: 'C++',
-  database: 'Database',
-  mq: 'MQ',
-  algorithms: '算法题',
-  interview: '面试',
-  k8s: 'K8s',
-  linux: 'Linux',
-  thinking: '思考',
-  python: 'Python',
-  qt: 'Qt',
-};
-//生成目录
-function getTableOfContents(markdown: string): TableOfContentsItem[] {
-  const tree = unified().use(remarkParse).parse(markdown);
-  const slugger = new GithubSlugger();
-  const items: TableOfContentsItem[] = [];
-
-  visit(tree, 'heading', (node) => {
-    if (node.depth !== 2) return;
-    const label = toString(node);
-    items.push({ id: slugger.slug(label), label });
-  });
-
-  return items;
-}
 //查找笔记
 function getModule(
   category: string,
@@ -67,19 +30,32 @@ function getModule(
   return match ? { path: match[0], markdown: match[1] } : undefined;
 }
 
-function getTitle(markdown: string, fallback: string): string {
-  return markdown.match(/^#\s+(.+)$/m)?.[1]?.trim() || fallback;
+function scrollToSection(id: string) {
+  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 export function KnowledgeDetail({ category }: KnowledgeDetailProps) {
   const { noteId = '' } = useParams();
+  // 从搜索结果跳过来时带两个参数：section 是要滚到的小节锚点，q 是要高亮的关键词
+  const [searchParams] = useSearchParams();
+  const sectionId = searchParams.get('section') ?? '';
+  const highlightQuery = searchParams.get('q') ?? '';
+
   const source = getModule(category, noteId);
-  const title = source ? getTitle(source.markdown, noteId) : noteId;
+  const title = source ? getNoteTitle(source.markdown, noteId) : noteId;
   const categoryLabel = categoryLabels[category.toLowerCase()] ?? category;
   const tableOfContents = useMemo(
     () => (source ? getTableOfContents(source.markdown) : []),
     [source]
   );
+
+  // 正文随渲染同步出现，effect 执行时锚点元素已经在 DOM 里，不需要等。
+  // 依赖必须用 source.path 而不是 source 本身：getModule 每次渲染都新建对象，
+  // 依赖 source 会让这个 effect 每次渲染都跑一遍，把用户手动滚走的位置又拽回去。
+  useEffect(() => {
+    if (!sectionId) return;
+    scrollToSection(sectionId);
+  }, [sectionId, source?.path]);
 
   if (!source) {
     return (
@@ -129,7 +105,7 @@ export function KnowledgeDetail({ category }: KnowledgeDetailProps) {
             </span>
           </div>
           <div className="markdown-content">
-            <MarkdownRenderer markdown={source.markdown} />
+            <MarkdownRenderer markdown={source.markdown} highlight={highlightQuery} />
           </div>
         </article>
 
@@ -143,14 +119,17 @@ export function KnowledgeDetail({ category }: KnowledgeDetailProps) {
               className="mt-4 max-h-[calc(100vh-160px)] overflow-y-auto border-l border-[var(--border)] pr-1"
               aria-label="Note sections"
             >
+              {/* 这里必须是按钮不能是 <a href="#id">：HashRouter 的 URL 本身就靠 # 工作，
+                  点 href="#foo" 会把路由冲掉变成 404。ProjectDetail 的目录也是同样写法。 */}
               {tableOfContents.map((item) => (
-                <a
+                <button
                   key={item.id}
-                  href={`#${item.id}`}
-                  className="block border-l-2 border-transparent py-1.5 pl-3 text-xs leading-5 text-[var(--text-faint)] outline-none transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
+                  type="button"
+                  onClick={() => scrollToSection(item.id)}
+                  className="block w-full border-l-2 border-transparent py-1.5 pl-3 text-left text-xs leading-5 text-[var(--text-faint)] outline-none transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)] focus-visible:border-[var(--accent)] focus-visible:text-[var(--accent)]"
                 >
                   {item.label}
-                </a>
+                </button>
               ))}
             </nav>
           </div>

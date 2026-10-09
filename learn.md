@@ -208,27 +208,53 @@ int main() {
 ```
 ````
 
+### 第六步：搜索
+
+搜索是这个项目里唯一一处「不渲染只解析」Markdown 的地方，正好用来看清解析和渲染的分工。
+
+按这个顺序读：
+
+```text
+src/lib/markdown.ts                       # 先看切分和锚点，后面全都依赖它
+src/data/searchIndex.ts                   # 建索引 + 打分 + 截片段
+src/components/common/SearchDialog.tsx    # 弹窗、键盘操作、懒加载时机
+src/lib/highlight.ts                      # 命中高亮（rehype 插件）
+```
+
+重点理解：
+
+- `unified().use(remarkParse).parse(markdown)` 拿到的是**语法树**，不是 HTML——在树上一层遍历就能同时服务目录、索引和渲染。
+- 同一份 `github-slugger` 逻辑为什么必须被三处共用（目录、索引、`rehype-slug`），以及 `.trim()` 为什么不能加。
+- 为什么「渲染完再操作 DOM 加 `<mark>`」会破坏 React 的节点，而改语法树不会。
+- `useMemo` 为什么在这里不能无条件执行（弹窗关着时不该建索引）。
+
 ## 4. 目录职责速查
 
 ```text
 src/
 ├── main.tsx                         # React 入口
 ├── App.tsx                          # 集中注册所有路由
-├── index.css                        # 全局样式和 Markdown 样式
+├── index.css                        # 全局样式、Markdown 样式、搜索高亮样式
 ├── App.css                          # 页面级样式入口，目前内容很少
 ├── types/index.ts                   # 共享类型
+├── lib/markdown.ts                  # Markdown 解析公共层：锚点、目录、按小节切分、标题/摘要提取
+├── lib/highlight.ts                 # 把搜索命中的词包成 <mark> 的 rehype 插件
 ├── data/navigation.ts               # 导航和分类卡片数据
-├── data/knowledgeNotes.ts           # 知识 Markdown 的 glob + countNotes() 计数
+├── data/knowledgeNotes.ts           # 知识 Markdown 的 glob + countNotes() 计数 + 分类显示名
+├── data/projectNotes.ts             # 项目 Markdown 的懒加载 glob（不 eager）
+├── data/searchIndex.ts              # 搜索索引：把笔记切成章节 + 匹配打分
 ├── data/projects.ts                 # Projects 元数据
 ├── components/
 │   ├── layout/                      # Layout、Header、Sidebar
-│   ├── common/                      # 面包屑、空状态、搜索框、Markdown 渲染器
+│   ├── common/                      # 面包屑、空状态、SearchBar 触发器、SearchDialog 弹窗、Markdown 渲染器
 │   └── project/                     # 项目卡片和项目区块
 ├── pages/                           # 路由页面
 ├── content/projects/*.md            # 项目正文
 ├── content/knowledge/<分类>/*.md    # 知识正文，一个子目录对应一个分类
 └── content/knowledge/interview/找工作.xls   # 投递记录表格，由 /applications 页面读取
 ```
+
+两个 `lib/` 文件是所有 Markdown 相关逻辑的唯一出处。**改锚点、目录或切分规则只改 `lib/markdown.ts`**，详情页和搜索索引都从这里取，改一处两边同步。
 
 `content/knowledge/` 下的子目录名就是分类名，例如 `k8s/`、`python/`、`qt/`。目录名和 URL 段、`KnowledgeCategory` 联合类型三者要保持对应。
 
@@ -337,6 +363,33 @@ src/content/knowledge/interview/找工作.xls
 - `import('xlsx')` 写成动态导入，SheetJS 会被单独打包成一个 chunk（约 500KB），只在打开这个页面时才加载，不拖慢首页。
 - 读取时用 `sheet_to_json(..., { raw: false })`，取单元格的显示文本。用默认的 `raw: true` 的话，日期会变成 `46273` 这种 Excel 序列号。
 - 表头是猜的：首行只有一个非空单元格就当合并标题（如「秋招」）；剩下第一行不含数字才当表头。所以「面经」表没有表头，整表都是数据。
+
+### 搜索：在内容之上再建一层章节索引
+
+页面右上角的搜索框和 <kbd>Ctrl/Cmd + K</kbd> 打开的是同一个弹窗（`SearchDialog`）。它不搜「篇」，搜「节」：
+
+```text
+按下 Ctrl+K
+  -> Layout 的 window keydown 监听打开 SearchDialog
+  -> 第一次打开才建索引：知识笔记同步建好，项目笔记异步拉取
+  -> searchIndex.ts 把每篇笔记按 ## / ### 切成小节
+  -> 输入关键词 -> 匹配 + 打分 -> 按相关度排序
+  -> 点结果 -> 跳 /<分类>/<笔记>?section=<小节锚点>&q=<关键词>
+  -> 详情页滚到该小节，并把命中的词高亮成 <mark>
+```
+
+几个关键设计：
+
+- **为什么按小节切**：一篇 `cc.md` 有 56KB、`面试题.md` 有 151KB。只给到「哪一篇」等于让人再 Ctrl+F 一次。切到 h2+h3 之后，各节正文的中位长度从 169 字符降到 118 字符。
+- **索引分两份，加载时机不同**：知识笔记是 `eager` 打包的，已在内存里；项目笔记 20 个文件共约 685KB，是懒加载的，打开搜索时才下载。所以搜索刚打开时可能只有知识笔记的结果，底部会显示「项目笔记加载中」。
+- **懒到什么程度**：`getKnowledgeDocs()` 内部做了缓存，首次调用才真正解析 Markdown。`SearchDialog` 关着的时候 `useMemo` 直接返回空数组，所以从不搜索的访客不付这份开销。
+- **跳转靠 URL 参数**：`?section=` 是锚点，`?q=` 是原关键词（详情页拿它做高亮）。两个都在 URL 上，所以搜索结果的链接可以直接分享、刷新还是那个位置。
+
+配合跳转的三个地方，改的时候容易漏：
+
+1. `Layout` 在 `location.search` 里发现 `section` 时会跳过「切页面滚回顶部」，否则详情页刚滚到位就被拽回页顶。
+2. 详情页的滚动放在 `useEffect` 里，ProjectDetail 还要等 `markdown` 到位（正文是异步加载的）。
+3. `index.css` 里给 `.markdown-content` 的标题加了 `scroll-margin-top: 5.5rem`，不然滚动目标会被 68px 的吸顶 Header 盖住。
 
 ## 6. TypeScript 学习重点
 
@@ -447,17 +500,22 @@ src/content/projects/你的项目名.md
 
 完成这个练习后，你就掌握了这个项目最重要的扩展模式。
 
-### 练习 5：实现搜索
+### 练习 5：读懂并改造搜索
 
-`SearchBar` 的输入框已经存在，但当前还没有连接到 Markdown 内容。你可以：
+搜索已经实现了，把它当阅读材料而不是从零写：
 
-1. 扫描所有 Markdown 文件。
-2. 提取文件名、标题和摘要。
-3. 根据输入内容过滤结果。
-4. 使用 `Link` 跳转到对应详情页。
-5. 增加无搜索结果状态。
+1. 读 `data/searchIndex.ts` 的 `splitIntoSections`，搞清楚一节是怎么切出来的。
+2. 读 `scoreDoc`，说清楚为什么搜「零拷贝」时 `面试题.md` 里的「零拷贝 Zero-Copy」排第一。
+3. 读 `SearchDialog.tsx`，画出弹窗打开后知识索引和项目索引分别在哪一步加载。
+4. 读 `lib/highlight.ts`，回答：为什么不用「渲染完再操作 DOM」的方式做高亮？
 
-这个练习会综合使用 Props、状态、数组过滤、路由和 Markdown 数据。
+改造方向（任选其一）：
+
+- **改排序**：让命中笔记标题的结果更靠前，或者给命中次数更多的小节加分。
+- **加范围过滤**：在弹窗里加一排分类标签，点一下就只在某个分类里搜。
+- **加键盘快捷键**：按 `/` 也能打开搜索框（注意别在输入框里误触发）。
+
+这几步会串起 Props、状态、数组过滤、路由和 Markdown 数据。
 
 ## 9. 常见问题排查
 
@@ -506,6 +564,71 @@ src/content/projects/你的项目名.md
 - **日期显示成 46273**：说明读到了原始序列号。确认 `sheet_to_json` 带着 `raw: false`。
 - **多出一行「秋招」这样的标题**：这是故意保留的合并单元格标题，不是 bug。
 - **表格没更新**：页面有模块级缓存，改完 xls 要刷新页面（`sheetPromise` 只在首次进入时创建）。
+
+### 搜索结果点进去没定位到小节
+
+`?section=` 传的是**小节锚点**，它必须和页面上 `rehype-slug` 生成的 `id` 逐字相同。排查顺序：
+
+- **看看 URL**。跳过去的地址应该是 `#/go/go?section=零拷贝&q=零拷贝`。没有 `?section=` 说明这条结果是「开篇小节」（`id` 为空），本来就该停在笔记开头。
+- **确认元素存在**。浏览器控制台执行 `document.getElementById('零拷贝')`，返回 `null` 就是锚点对不上。
+- **别自己写 slug**。锚点只能由 `lib/markdown.ts` 的 `getTableOfContents` / `splitIntoSections` 产出，它们和渲染用的是同一套 `github-slugger`。手写或用别的库算都会漂。
+- **被 Header 盖住**？那只说明 `scroll-margin-top` 丢了，元素其实滚过去了。
+
+### 搜索跳转的位置差了开头一个字符 / 锚点带前导 `-`
+
+`github-slugger` **不裁剪首尾空格**，会把空格也转成 `-`。`qt.md` 里有一行标题是：
+
+```markdown
+## ` <QTextStream>`：Qt 的文本流类……
+```
+
+标题正文以空格开头，所以页面上的 id 是 `-qtextstreamqt-...`，带一个前导横线。
+
+因此算锚点时必须用 `toString(node)` 的**原串**，`.trim()` 过的字符串只能用来判断空标题和显示：
+
+```ts
+const raw = toString(node);      // 拿去算锚点
+const label = raw.trim();        // 拿去显示、判空
+```
+
+### 改了高亮插件后，从搜索结果点进详情页直接白屏
+
+报错长这样：
+
+```text
+TypeError: Cannot read properties of undefined (reading 'children')
+```
+
+八成是把 **transformer 当成 plugin 交出去了**。unified 的插件有两层：
+
+```ts
+// 正确：attacher 先被调用一次（拿到 options），它返回的函数才是 transformer
+function rehypePlugin(options) {
+  return (tree) => { /* 在这里改语法树 */ };
+}
+
+// 错误：直接返回 (tree) => {...}，unified 会当作 attacher 调用它，
+// 参数是 options 不是语法树，tree 就是 undefined
+```
+
+`lib/highlight.ts` 的 `createHighlightPlugin` 就是标准写法，对照着改。注意 **`npm run build` 拦不住这个错**——unified 的插件类型很宽松，只能靠真的跑一遍页面才会暴露。
+
+### 右侧「On this page」点一下跳到 404
+
+目录项**必须是 `<button onClick={...}>`，不能是 `<a href="#某个id">`**。
+
+这个站用 `HashRouter`，URL 里的 `#` 是路由本身（`#/go/go`）。点 `href="#零拷贝"` 会把整个 hash 换成 `零拷贝`，路由解析成 `/零拷贝`，直接掉进 `NotFound`。`KnowledgeDetail` 和 `ProjectDetail` 的目录都是按钮，照抄就行。
+
+Markdown 正文里手写的 `[文字](#锚点)` 也有同样的问题，写笔记时避开。
+
+### 某篇项目笔记搜不到
+
+项目笔记要能搜到，得同时满足两条：
+
+- 文件在 `src/content/projects/` 下，且扩展名是 `.md`；
+- 文件在 `src/data/projects.ts` 里有对应条目——匹配规则是「`project.fileName`，没有就用 `project.id + '.md'`」，两边都转小写后比对。
+
+只放了 Markdown、没在 `projects.ts` 注册的文件没有路由，搜出来也点不进去，所以索引层会直接跳过（`kratos.md` 目前就是这种孤儿文件）。
 
 ### 页面标题不对
 
@@ -565,9 +688,9 @@ Local: http://localhost:5173/
 
 新增一篇 K8s 笔记，再新增一个项目，检查列表、详情和目录。
 
-### 第 7 天：完成一个功能
+### 第 7 天：读透搜索
 
-选择接入 Go/C++/Database，或者实现搜索功能，并用 `npm run build` 验证。
+沿着「解析 -> 索引 -> 弹窗 -> 跳转定位 -> 高亮」完整走一遍搜索链路（见第 3 节的「第六步」），然后按练习 5 挑一个方向改造，并用 `npm run build` 验证。
 
 ## 11. 最终应该掌握什么
 

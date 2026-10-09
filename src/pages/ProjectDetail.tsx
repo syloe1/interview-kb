@@ -1,166 +1,31 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import type { Components } from 'react-markdown';
-import ReactMarkdown from 'react-markdown';
-import GithubSlugger from 'github-slugger';
-import hljs from 'highlight.js/lib/core';
-import c from 'highlight.js/lib/languages/c';
-import cpp from 'highlight.js/lib/languages/cpp';
-import go from 'highlight.js/lib/languages/go';
-import { toString } from 'mdast-util-to-string';
-import rehypeSlug from 'rehype-slug';
-import remarkGfm from 'remark-gfm';
-import remarkParse from 'remark-parse';
-import { unified } from 'unified';
-import { visit } from 'unist-util-visit';
-import {
-  ArrowUpRight,
-  ArrowLeft,
-  BookMarked,
-  Check,
-  CircleDot,
-  Clipboard,
-  ListTree,
-} from 'lucide-react';
-import { Link, useParams } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { ArrowUpRight, ArrowLeft, BookMarked, CircleDot, ListTree } from 'lucide-react';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { Breadcrumb } from '../components/common/Breadcrumb';
+import { MarkdownRenderer } from '../components/common/MarkdownRenderer';
 import { ProjectSection } from '../components/project/ProjectSection';
+import { projectMarkdownSources } from '../data/projectNotes';
 import { projects } from '../data/projects';
-// 语法高亮配置
-hljs.registerLanguage('c', c);
-hljs.registerLanguage('cpp', cpp);
-hljs.registerLanguage('go', go);
-hljs.registerAliases(['c++', 'cc', 'hpp'], { languageName: 'cpp' });
-hljs.registerAliases('golang', { languageName: 'go' });
-
-//动态Markdown加载
-interface MarkdownSource {
-  fileName: string;
-  load: () => Promise<string>;
-}
-// 以纯文本形式导入markdown文件
-const markdownModules = import.meta.glob<string>('../content/projects/*.md', {
-  query: '?raw',
-  import: 'default',
-});
-// Vite 的 import.meta.glob
-const markdownSources = Object.fromEntries(
-  Object.entries(markdownModules).map(([path, load]) => {
-    const fileName = path.split('/').pop() ?? '';
-    const projectId = fileName.replace(/\.md$/i, '').toLowerCase();
-    return [projectId, { fileName, load }];
-  })
-) as Record<string, MarkdownSource>;
-// 目录生成
-interface TableOfContentsItem {
-  id: string;
-  label: string;
-}
-
-// 提取文本
-function getTextContent(children: ReactNode): string {
-  if (typeof children === 'string' || typeof children === 'number') {
-    return String(children);
-  }
-
-  if (Array.isArray(children)) {
-    return children.map(getTextContent).join('');
-  }
-
-  if (children && typeof children === 'object' && 'props' in children) {
-    return getTextContent((children.props as { children?: ReactNode }).children);
-  }
-
-  return '';
-}
-// 生成目录
-function getTableOfContents(markdown: string): TableOfContentsItem[] {
-  const tree = unified().use(remarkParse).parse(markdown);
-  const slugger = new GithubSlugger();
-  const items: TableOfContentsItem[] = [];
-
-  visit(tree, 'heading', (node) => {
-    if (node.depth !== 2) return;
-
-    const label = toString(node);
-    items.push({
-      id: slugger.slug(label),
-      label,
-    });
-  });
-
-  return items;
-}
-
-interface CodeBlockProps {
-  className?: string;
-  children?: ReactNode;
-}
-// 代码块组件
-function CodeBlock({ className, children }: CodeBlockProps) {
-  const [isCopied, setCopied] = useState(false);
-  const language = className?.match(/language-([^\s]+)/)?.[1]?.toLowerCase();
-  const code = getTextContent(children).replace(/\n$/, '');
-
-  if (!language) {
-    return <code className={className}>{children}</code>;
-  }
-
-  const copyCode = async () => {
-    try {
-      await navigator.clipboard.writeText(code);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1600);
-    } catch {
-      setCopied(false);
-    }
-  };
-
-  const isLanguageSupported = Boolean(hljs.getLanguage(language));
-  const highlightedCode = isLanguageSupported
-    ? hljs.highlight(code, { language }).value
-    : '';
-
-  return (
-    <code className={`hljs ${className ?? ''}`} data-language={language}>
-      <button
-        type="button"
-        className="code-copy-button"
-        aria-label="Copy code"
-        title="Copy code"
-        onClick={copyCode}
-      >
-        {isCopied ? (
-          <Check size={14} aria-hidden="true" />
-        ) : (
-          <Clipboard size={14} aria-hidden="true" />
-        )}
-      </button>
-      {isLanguageSupported ? (
-        <span dangerouslySetInnerHTML={{ __html: highlightedCode }} />
-      ) : (
-        children
-      )}
-    </code>
-  );
-}
-
-const markdownComponents: Components = {
-  h1: ({ children }) => <h1>{children}</h1>,
-  code: CodeBlock,
-};
+import { getTableOfContents } from '../lib/markdown';
 
 function scrollToSection(id: string) {
   document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
+
 // 渲染项目详情页
 export function ProjectDetail() {
   const { projectId = '' } = useParams();
+  // 从搜索结果跳过来时带两个参数：section 是要滚到的小节锚点，q 是要高亮的关键词
+  const [searchParams] = useSearchParams();
+  const sectionId = searchParams.get('section') ?? '';
+  const highlightQuery = searchParams.get('q') ?? '';
+
   const normalizedProjectId = projectId.toLowerCase();
   const project = projects.find((item) => item.id.toLowerCase() === normalizedProjectId);
   const markdownKey = project?.fileName
     ? project.fileName.replace(/\.md$/i, '').toLowerCase()
     : normalizedProjectId;
-  const markdownSource = project ? markdownSources[markdownKey] : undefined;
+  const markdownSource = project ? projectMarkdownSources[markdownKey] : undefined;
   const [markdown, setMarkdown] = useState('');
   const [isLoading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -168,6 +33,7 @@ export function ProjectDetail() {
     () => (markdown ? getTableOfContents(markdown) : []),
     [markdown]
   );
+
   // 加载 Markdown 内容
   useEffect(() => {
     let isCurrent = true;
@@ -198,6 +64,12 @@ export function ProjectDetail() {
       isCurrent = false;
     };
   }, [project, markdownSource]);
+
+  // 项目正文是异步加载的，必须等 markdown 到位、锚点元素渲染出来之后再滚
+  useEffect(() => {
+    if (!sectionId || !markdown) return;
+    scrollToSection(sectionId);
+  }, [sectionId, markdown]);
 
   if (!project) {
     return <ProjectNotFound message={`No project is registered for “${projectId}”.`} />;
@@ -275,13 +147,7 @@ export function ProjectDetail() {
               </p>
             )}
             {!isLoading && !loadError && (
-              <ReactMarkdown
-                components={markdownComponents}
-                remarkPlugins={[remarkGfm]}
-                rehypePlugins={[rehypeSlug]}
-              >
-                {markdown}
-              </ReactMarkdown>
+              <MarkdownRenderer markdown={markdown} highlight={highlightQuery} />
             )}
           </div>
         </article>

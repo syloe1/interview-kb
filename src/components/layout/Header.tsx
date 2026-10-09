@@ -1,14 +1,16 @@
-import { GitBranch, Menu } from 'lucide-react';
+import { GitBranch, Menu, Search } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { SearchBar } from '../common/SearchBar';
 import { ThemeToggle } from '../common/ThemeToggle';
 // 接口契约， 任何使用Header组件的地方，必须传入一个OnMenuClick属性
 //无参无返回函数
+// 搜索弹窗也由 Layout 持有，Header 只负责触发，和侧边栏的 onMenuClick 是同一套路子
 interface HeaderProps {
   onMenuClick: () => void;
+  onSearchOpen: () => void;
 }
 
-export function Header({ onMenuClick }: HeaderProps) {
+export function Header({ onMenuClick, onSearchOpen }: HeaderProps) {
   return (
     <header className="sticky top-0 z-30 flex h-[68px] items-center border-b border-[var(--border)] bg-[var(--header-bg)] px-4 backdrop-blur-sm sm:px-6 lg:px-8">
       <div className="flex w-full items-center gap-3">
@@ -32,8 +34,18 @@ export function Header({ onMenuClick }: HeaderProps) {
 
         <div className="ml-auto flex min-w-0 items-center gap-3 sm:gap-5">
           <div className="hidden min-w-0 md:block">
-            <SearchBar />
+            <SearchBar onOpen={onSearchOpen} />
           </div>
+
+          {/* 窄屏下面上面的搜索框会隐藏，这里补一个纯图标入口 */}
+          <button
+            type="button"
+            aria-label="搜索笔记"
+            onClick={onSearchOpen}
+            className="flex h-9 w-9 items-center justify-center rounded-md text-[var(--text-faint)] transition-colors hover:bg-[var(--hover-bg)] hover:text-[var(--text-secondary)] md:hidden"
+          >
+            <Search size={18} aria-hidden="true" />
+          </button>
 
           {/* 主题切换按钮 */}
           <ThemeToggle />

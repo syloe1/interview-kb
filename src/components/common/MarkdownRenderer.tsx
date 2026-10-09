@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import type { Components } from 'react-markdown';
 import ReactMarkdown from 'react-markdown';
 import hljs from 'highlight.js/lib/core';
@@ -8,6 +8,7 @@ import go from 'highlight.js/lib/languages/go';
 import { Check, Clipboard } from 'lucide-react';
 import remarkGfm from 'remark-gfm';
 import rehypeSlug from 'rehype-slug';
+import { createHighlightPlugin } from '../../lib/highlight';
 //语法高亮配置
 hljs.registerLanguage('c', c);
 hljs.registerLanguage('cpp', cpp);
@@ -17,6 +18,8 @@ hljs.registerAliases('golang', { languageName: 'go' });
 
 interface MarkdownRendererProps {
   markdown: string;
+  /** 传入搜索关键词时，正文里命中的片段会被包成 <mark class="search-hit"> */
+  highlight?: string;
 }
 
 interface CodeBlockProps {
@@ -93,12 +96,17 @@ const markdownComponents: Components = {
   code: CodeBlock,
 };
 
-export function MarkdownRenderer({ markdown }: MarkdownRendererProps) {
+export function MarkdownRenderer({ markdown, highlight = '' }: MarkdownRendererProps) {
+  const rehypePlugins = useMemo(
+    () => [rehypeSlug, createHighlightPlugin(highlight)],
+    [highlight]
+  );
+
   return (
     <ReactMarkdown
       components={markdownComponents}
       remarkPlugins={[remarkGfm]}
-      rehypePlugins={[rehypeSlug]}
+      rehypePlugins={rehypePlugins}
     >
       {markdown}
     </ReactMarkdown>

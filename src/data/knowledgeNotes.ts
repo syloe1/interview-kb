@@ -9,6 +9,22 @@ export const knowledgeMarkdown = import.meta.glob<string>(
   }
 );
 
+// 分类目录名 -> 页面显示名。分类页、详情页面包屑和搜索结果都用这一份，
+// 键统一小写，和目录名的大小写无关。
+export const categoryLabels: Record<string, string> = {
+  go: 'Go',
+  cpp: 'C++',
+  database: 'Database',
+  mq: 'MQ',
+  algorithms: '算法题',
+  interview: '面试',
+  k8s: 'K8s',
+  linux: 'Linux',
+  thinking: '思考',
+  python: 'Python',
+  qt: 'Qt',
+};
+
 // 统计某个分类目录下的笔记数量，返回首页卡片要显示的标签
 // 目录为空时返回 Coming soon，Home 靠 includes('coming') 判断徽章样式
 export function countNotes(category: string): string {
