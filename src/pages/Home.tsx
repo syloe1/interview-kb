@@ -25,7 +25,7 @@ const iconByLabel = {
   Linux: Clock3,
   思考: Clock3,
   Python: Clock3,
-  Qt: Clock3,
+  'Qt / MCU': Clock3,
   投递: FileSpreadsheet,
 };
 

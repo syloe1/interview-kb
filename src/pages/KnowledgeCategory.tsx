@@ -25,7 +25,7 @@ export type KnowledgeCategory =
   | 'linux'
   | 'thinking'
   | 'python'
-  | 'qt';
+  | 'qt-mcu';
 // 组件Props
 interface KnowledgeCategoryProps {
   category: KnowledgeCategory;

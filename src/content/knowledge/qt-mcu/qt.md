@@ -92,6 +92,7 @@
 - `QPixmap`：Qt 用于**在屏幕上绘制**的图像类型，适合 UI 控件显示
 - QTimer
   ->setInterval设置刷新频率
+- QMutexLocker 是RAII锁
 
 ## 属性
 

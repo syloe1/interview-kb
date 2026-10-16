@@ -22,7 +22,7 @@ export const categoryLabels: Record<string, string> = {
   linux: 'Linux',
   thinking: '思考',
   python: 'Python',
-  qt: 'Qt',
+  'qt-mcu': 'Qt / MCU',
 };
 
 // 统计某个分类目录下的笔记数量，返回首页卡片要显示的标签

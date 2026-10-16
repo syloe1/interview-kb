@@ -256,7 +256,9 @@ src/
 
 两个 `lib/` 文件是所有 Markdown 相关逻辑的唯一出处。**改锚点、目录或切分规则只改 `lib/markdown.ts`**，详情页和搜索索引都从这里取，改一处两边同步。
 
-`content/knowledge/` 下的子目录名就是分类名，例如 `k8s/`、`python/`、`qt/`。目录名和 URL 段、`KnowledgeCategory` 联合类型三者要保持对应。
+`content/knowledge/` 下的子目录名就是分类名，例如 `k8s/`、`python/`、`qt-mcu/`。目录名和 URL 段、`KnowledgeCategory` 联合类型三者要保持对应。
+
+目录名只用小写字母、数字和连字符。带空格或大写的名字（比如 `qt and mcu`）会让 URL 里出现 `%20`，路由和 `countNotes` 都对不上——`countNotes` 只把大小写抹平，不会处理空格。
 
 ## 5. 三种内容模型
 
@@ -308,7 +310,7 @@ src/content/knowledge/k8s/
 src/content/knowledge/linux/
 src/content/knowledge/thinking/
 src/content/knowledge/python/
-src/content/knowledge/qt/
+src/content/knowledge/qt-mcu/
 ```
 
 例如：
@@ -331,18 +333,18 @@ src/content/knowledge/fundamentals/*.md
 
 #### 新增一个知识分类要改哪些文件
 
-以 `qt` 为例，只加 Markdown 目录还不够，还要让路由认识它：
+以 `qt-mcu` 为例，只加 Markdown 目录还不够，还要让路由认识它：
 
-1. 建目录并放笔记：`src/content/knowledge/qt/qt.md`。
-2. 新建页面 `src/pages/Qt.tsx`，把 `category="qt"` 传给 `KnowledgeCategoryPage`。
-3. `src/App.tsx` 注册两条路由：`/qt` 和 `/qt/:noteId`。
-4. `src/pages/KnowledgeCategory.tsx` 的 `KnowledgeCategory` 联合类型补上 `'qt'`。
-5. `src/pages/KnowledgeDetail.tsx` 的 `categoryLabels` 补上显示名。
+1. 建目录并放笔记：`src/content/knowledge/qt-mcu/qt.md`。
+2. 新建页面 `src/pages/QtMcu.tsx`，把 `category="qt-mcu"` 传给 `KnowledgeCategoryPage`。
+3. `src/App.tsx` 注册两条路由：`/qt-mcu` 和 `/qt-mcu/:noteId`。
+4. `src/pages/KnowledgeCategory.tsx` 的 `KnowledgeCategory` 联合类型补上 `'qt-mcu'`。
+5. `src/data/knowledgeNotes.ts` 的 `categoryLabels` 补上显示名。分类页（`KnowledgeCategory.tsx`）和搜索索引（`searchIndex.ts`）都 import 这一份，别在别处另开一个。
 6. `src/data/navigation.ts` 加导航项；`src/pages/Home.tsx` 的 `iconByLabel` 也要加同名 key，否则首页卡片会渲染出空图标。
 
 注意第 6 步容易漏：首页图标是按导航项的 `label` 查表的，联合类型不会拦住漏配的 key。
 
-导航项的 `countLabel` 不用手写。[src/data/navigation.ts](src/data/navigation.ts) 里写的是 `countNotes('qt')`，这个函数在 [src/data/knowledgeNotes.ts](src/data/knowledgeNotes.ts)：扫一遍 `src/content/knowledge/` 下的 Markdown，数出该分类目录里有多少篇，返回 `3 notes` 这种标签；目录不存在或没有 `.md` 时返回 `Coming soon`。首页卡片就是靠标签里有没有 `coming` 这个词来决定徽章颜色的，所以**加完笔记不用再去改数字**。
+导航项的 `countLabel` 不用手写。[src/data/navigation.ts](src/data/navigation.ts) 里写的是 `countNotes('qt-mcu')`，这个函数在 [src/data/knowledgeNotes.ts](src/data/knowledgeNotes.ts)：扫一遍 `src/content/knowledge/` 下的 Markdown，数出该分类目录里有多少篇，返回 `3 notes` 这种标签；目录不存在或没有 `.md` 时返回 `Coming soon`。首页卡片就是靠标签里有没有 `coming` 这个词来决定徽章颜色的，所以**加完笔记不用再去改数字**。
 
 ### 投递情况：运行时解析 Excel
 
@@ -555,6 +557,26 @@ src/content/projects/你的项目名.md
 - 拿 `src/data/navigation.ts` 里传的字符串，去和 `src/content/knowledge/` 下的目录名逐字对一遍，比如 `countNotes('interview')` 对应 `interview/`。
 - 目录名大小写不影响：`countNotes` 内部会转成小写再比，所以 `Python/` 能被 `countNotes('python')` 数到。但两边都写小写最省心。
 - 分类页（`/interview`）能列出笔记、首页却显示 `Coming soon` 时，基本就是这个参数对不上——因为分类页用的是 `KnowledgeCategory` 联合类型，写错了 TypeScript 会直接报错，首页这边只是个字符串。
+
+### 改了分类目录名，分类页直接空掉
+
+在 `src/content/knowledge/` 里 `mv` 一个目录，Markdown 还在仓库里，但页面全没了。原因是分类名在四个地方各写了一遍：
+
+```text
+src/content/knowledge/<目录名>/         ← 真正的文件
+src/pages/KnowledgeCategory.tsx         ← 联合类型
+src/App.tsx                             ← 路由 /<目录名> 和 /<目录名>/:noteId
+src/data/navigation.ts                  ← path 和 countNotes('<目录名>')
+src/data/knowledgeNotes.ts              ← categoryLabels 的 key
+```
+
+漏掉任何一处，症状不一样：
+
+- 漏联合类型 / 路由：`npm run build` 直接报 TypeScript 错，跑不起来。
+- 漏 `navigation.ts`：侧边栏没有入口，但直接敲 URL 还能进。
+- 目录名对不上联合类型：分类页空状态、首页显示 `Coming soon`，**构建却是通过的**——这类错误 TypeScript 拦不住，只能自己逐字对目录名。
+
+所以要改目录名，先把上面五个地方一起改，再 `npm run build` 确认。
 
 ### 投递情况页面的表格不对
 
