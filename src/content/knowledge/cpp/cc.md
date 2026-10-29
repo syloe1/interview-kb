@@ -19,6 +19,61 @@
 
 ## 一、C++ 语言基础
 
+### resize assign reserve
+
+```cpp
+vector<int> v;
+
+// reserve：只开内存，size=0，里面没元素
+v.reserve(5);
+// v.size() = 0, v.capacity() >=5
+// v[0] 非法！不能下标访问
+
+// resize：size变成5，自动构造5个0
+v.resize(5);
+// v.size() =5, v.capacity()>=5
+// v[0]~v[4] 有效，可以赋值
+
+// assign：清空旧元素，重新生成3个 99
+v.assign(3,99);
+// v.size()=3，内容 [99,99,99]
+first_key_.assign(data_ptr, first_key_size);
+
+- 把 `first_key_` 旧内容清空
+- 从 `data_ptr` 这个内存地址，往后拷贝 **first_key_size 个字节** 放到 first_key_
+
+```
+
+# C++ const 指针口诀：const 离谁近，就修饰谁
+
+> 两个主体：`p`（指针变量，存地址）、`*p`（指针指向的内容）
+
+| 写法                                     | 被const锁住 | p能否修改指向 | *p能否修改内容 | 别名               | 通俗比喻                                         |
+| ---------------------------------------- | ----------- | ------------- | -------------- | ------------------ | ------------------------------------------------ |
+| `const char *p` <br>等价 `char const *p` | 指向的内容  | ✅ 可以       | ❌ 不可以      | 指向常量的指针     | 遥控器p可以换电视，电视画面不能改                |
+| `char * const p`                         | 指针变量p   | ❌ 不可以     | ✅ 可以        | 常量指针           | 遥控器焊死在这台电视，不能拿走，但可以换台改画面 |
+| `const char * const p`                   | 内容 + 指针 | ❌ 不可以     | ❌ 不可以      | 指向常量的常量指针 | 遥控器焊死、画面也不能改，全部锁死               |
+
+## 示例代码
+
+```cpp
+// 1. const char *p  指向常量的指针
+const char *p = "hello";
+p = "world";   // ✅ OK：p换指向
+// *p = 'a';   // ❌ 报错：不允许修改指向内容
+
+// 2. char * const p  常量指针
+char buf[] = "hello";
+char * const p2 = buf;
+*p2 = 'a';     // ✅ OK：修改内容
+// p2 = "test";// ❌ 报错：指针本身不能改指向
+
+// 3. const char * const p 双向锁定
+const char * const p3 = "hi";
+// p3 = "aaa"; // ❌
+// *p3 = 'b';  // ❌
+```
+
 ### string_view
 
 > `string_view` 只是一个【指针 + 长度】的轻量级包装，它不存字符串本身，不分配内存，不拷贝字节。
