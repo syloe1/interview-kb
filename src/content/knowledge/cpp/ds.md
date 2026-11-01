@@ -342,3 +342,34 @@ int main() {
   return 0;
 }
 ```
+
+# LSM-Tree 笔记
+
+LSM树：放弃单棵有序树，原地更新；
+每层有序文件合并，把随机写转成顺序写。
+
+整体分为两块：内存 + Immutable MemTable
+
+- MemTable：内存里的有序结构，所有写入先落这里；
+  插入、更新、删除 O(log n)；
+  刷盘：不直接改老数据，追加新记录。
+- Immutable MemTable：只读内存表
+  MemTable 达到阈值（默认4MB）转为 Immutable；
+  同时新开 MemTable 承接新写入；
+  后台线程把 Immutable 转成磁盘上的 SSTable（有序持久化文件），顺序刷盘。
+
+磁盘层：多层 SSTable（Level(n)），SSTable 磁盘上不可修改的有序文件
+内部按 key 排序，带索引、布隆过滤器加速查询；
+**高层 SSTable 之间 key 区间可能重叠；
+L0层（Immutable落盘生成）SSTable之间 key 区间大量重叠；
+L1及以后，同层 SSTable key 区间不重叠（跳表有序）**
+
+## Compaction 策略
+
+1. Leveled Compaction（分层压缩）
+   分层区间隔离，后台合并生成新文件；
+   读性能一般，写性能好。
+
+2. Size-Tiered Compaction（分层大小合并）
+   同大小文件一组合并；
+   写吞吐更高，但读放大明显。

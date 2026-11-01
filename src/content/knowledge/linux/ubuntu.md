@@ -1,3 +1,19 @@
+## 虚拟机的ubuntu配置代理
+
+```
+ip route show | grep default | awk '{print $3}'
+curl -x http://172.30.0.1:7897 -I https://github.com
+
+配置git代理
+git config --global http.proxy http://172.30.0.1:7897
+git config --global https.proxy http://172.30.0.1:7897
+// 验证一下
+git ls-remote https://github.com/github/gitignore.git
+```
+
+ctrl + z停止， jobs 列出 fg前台执行
+kill %任务编号（jobs列出来的）
+scp -r 文件夹 wk@192.168.142.137:/home/wk/
 `df -h` 查看文件系统磁盘使用量
 `du -sh <目录>` 统计目录下文件总大小
 `lsblk` 列出块设备
@@ -194,28 +210,35 @@ IO 磁盘查看 iostat
 网络连接 netstat/ss
 cpu 性能 perf
 
-
 ## 查看进程是否存在
+
 ```bash
 ps aux | grep  name
 ```
+
 ## 确认端口是否监听
+
 ```bash
 ss -tlhp | grep :<端口>
 ```
 
-
 ## 临时关闭图形界面
+
 ```bash
 sudo systemctl isolate multi-user.target
 ```
+
 ## 恢复图形界面：
+
 ```bash
 sudo systemctl isolate graphical.target
 ```
 
 ## 释放更多资源（可选）禁用 GUI 后，还可以考虑停掉显示管理器服务来节省资源：
-```bash
+
+````bash
 sudo systemctl disable gdm        # 或 lightdm / sddm
 sudo systemctl stop gdm
 ```bash
+
+````

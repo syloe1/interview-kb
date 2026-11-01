@@ -70,6 +70,37 @@ f = func(x, y int) int {
 
 - 函数可以是一个返回对象；工厂函数返回值是函数。
 
+# Go channel 底层笔记
+
+channel 底层结构：`hchan`
+
+## 为什么 channel 并发安全？
+
+对 hchan 的读写、入队/出队，收发操作都会加锁；
+操作完成后再解锁，串行化并发访问，避免竞态条件。
+
+`hchan.mutex`：互斥锁 + 睡眠唤醒结合，短时间自旋抢锁，长时间抢不到把G挂起。
+
+send / recv 流程：
+找到对方队列 → 抢走G → 唤醒G → 数据拷贝
+
+## 关闭 channel 底层行为
+
+1. 加互斥锁，合法性校验
+2. 标记已关闭
+3. 唤醒所有阻塞G
+4. 释放锁
+
+### 不同场景行为汇总
+
+| 状态         | 发送 `c <- val`       | 接收 `val, ok := <-c`                |
+| ------------ | --------------------- | ------------------------------------ |
+| nil          | 永久阻塞              | 永久阻塞                             |
+| closed       | panic                 | 不阻塞，返回零值，ok=false；计数减一 |
+| 有缓冲、未满 | 写入，qcount+1        | 取出，qcount-1                       |
+| 有缓冲、满   | 发送G阻塞入sendq      | 取出，qcount-1；唤醒阻塞send         |
+| 无缓冲       | 直接配对阻塞send/recv | 直接配对阻塞recv                     |
+
 ### 结构体与方法
 
 ```go
@@ -115,6 +146,64 @@ func (c Cat) Speak() string { return "meow" }
 - 空接口：`var x interface{}`，所有类型都自动实现空接口。
 - 接口习惯 er 结尾。
 
+# Go select & GMP 调度笔记
+
+## select 底层要点
+
+select 底层是随机遍历，避免饥饿；
+随机挑选就绪分支执行；阻塞时复用M，不依赖轮询，阻塞期间M可调度其他G。
+
+## 调度流程（M/P/G）
+
+1. M从P拿G
+2. 执行handoff / local queue里的G
+3. G执行、让出、阻塞
+4. M切挂G
+5. P偷其他P的G（work stealing）
+6. 多级调度同时M与P解绑
+
+P的数量 = GOMAXPROCS
+P本地G队列空了，触发工作窃取：
+
+1. 先查全局G队列
+2. 窃取其他P的runq
+
+## 位图（poll 位图，64bit，快取就绪）
+
+poll位图：对case做下标标记
+
+- 对应k个下标置1：该case就绪
+- 存在0：一定不就绪
+- 全为1：可能就绪（存在假阳性，不能直接判定）
+
+> 存在假阳性，不做删除，无遍历开销，复杂度 O(k)
+
+计数扩展：
+0/1 → poll计数，保存就绪case
+如果对应下标-1，代表这个case已经被选中、消费
+在select多个就绪分支中，随机选一条执行
+
+# Go GMP 调度模型笔记
+
+GMP 拆解：G、M、P 三层
+
+1. M 抢占不了，做不成 M:N 调度，内核 M 被 OS 调度
+2. M 由内核控制抢占、切换线程
+3. 无本地队列：全局队列，会竞争锁；
+   加 P 后，P 绑定默认等于 CPU 核数，控制运行 M 的上限
+4. 每个 P 有私有本地队列，绝大部分 G 无全局锁调度
+5. 6 个任务，M 去执行工，P 上工作任务盒子（2M）可以抢
+6. 工作P，任务可以偷盒子（工作窃取）
+
+## 概念速记
+
+- G：Goroutine，协程，Go代码执行单元
+- M：Machine，内核线程，真正占用OS线程
+- P：Processor，逻辑处理器，调度中介，持有G队列，控制M数量上限
+- 本地队列：P自己的G队列，无锁、速度快
+- 全局队列：所有P共享，需要加锁竞争
+- 工作窃取：空闲P去别的P的本地队列偷G执行，均衡负载
+
 ### iota 生成常量
 
 ```go
@@ -137,6 +226,7 @@ const (
 ### defer
 
 > 你走之前，一定要关灯。
+>
 > - defer 压栈，后进先出。
 > - 函数 return 前执行，执行 panic 了 defer 也会执行。
 > - defer 声明时立即对参数求值。
@@ -349,6 +439,99 @@ go func() {
 - Go 使用连续栈机制，不链表栈，栈上效率高。
 - 缩容：Go 周期性检查，栈使用率低就释放多余内存空间。
 
+# Go GMP 阻塞场景笔记
+
+## 1. Goroutine 阻塞（sleep、channel等待、锁等待）
+
+G 休眠，M 直接丢掉当前 G，从 P 队列拿下一个新 G 继续跑。
+被阻塞的 G 留在等待队列；就绪之后重新进入 P 队列，复用 M，**不卡 P**。
+
+## 2. 系统调用阻塞（读本地文件、阻塞IO）
+
+M 进入内核阻塞，主动和 P 解绑。
+P 马上找空闲 M（新建M）接管自己，继续跑剩下的 G。
+系统调用返回后，阻塞的 M 尝试抢回 P；抢不到就进 M 池。
+
+> 核心：单个G阻塞只会卡住当前M，P立刻换工人继续干活，调度整体完全不中断。
+
+## 3. 网络IO（异步阻塞，netpoll）
+
+网络IO不走上面的阻塞逻辑，底层基于 `epoll` + netpoller 机制。
+框架会把所有fd注册到网络调度器的epoll监听。
+调用 `conn.Read()` 时，G 主动挂起，放回调度队列，M 去跑其他G，**不阻塞M线程**。
+等socket有数据到达，epoll唤醒对应G，G重新进入P队列等待调度。
+
+````
+# Go 网络IO & epoll & JSON 笔记
+## 用户态协程：虚拟阻塞 + 底层多路复用
+一个 M 可以调度上万个连接对应的 G，不需要**一连接一线程**（一个内核线程）。
+
+## Gin JSON 解析
+```go
+// 方式1：ShouldBindBodyWith
+if err := c.ShouldBindBodyWith(&user, binding.JSON); err != nil {
+}
+// 配套：tag `json:"xxx" validate:"xxx"`, `disallowUnknownFields=false`
+
+// 方式2：json.Decoder
+err := json.NewDecoder(c.Request.Body).Decode(&user)
+````
+
+## select / poll vs epoll
+
+- `select/poll`：O (n) 遍历，上万连接直接卡死
+- `epoll`：O (1) 就绪通知，百万连接也能稳定处理
+
+## epoll 核心 API
+
+```cpp
+// 创建epoll实例，返回epfd，一个进程可持有多个epoll实例
+epoll_create(1)
+
+// 增/改/删监听fd
+epoll_ctl(
+    int epfd,        // epoll实例fd
+    int op,          // EPOLL_CTL_ADD / MOD / DEL
+    int fd,          // 要监听的socket fd
+    epoll_event *ev  // 事件：EPOLLIN可读、EPOLLOUT可写
+);
+```
+
+````
+# epoll_wait 与触发模式笔记
+## epoll_wait 函数原型
+```c
+int epoll_wait(
+    int epfd,
+    epoll_event *events,  // 就绪事件数组，用于传出就绪fd
+    int maxevents,        // 最多返回多少个事件
+    int timeout           // 阻塞超时时间，单位ms；-1代表永久阻塞
+);
+````
+
+## 水平触发 LT（Level Trigger）
+
+只要缓冲区还有数据，就会一直触发通知。
+
+> 特点：如果一次没读完数据，下次 epoll_wait 仍然会再次返回这个 fd；编程简单，不容易丢事件。
+
+## 边缘触发 ET（Edge Trigger）
+
+只有状态发生变化的时候才触发一次（比如：新数据从无到有到来）。
+
+> 特点：必须循环读，直到返回 `EAGAIN`，把缓冲区数据全部读完，否则剩下的数据不会再触发通知。
+
+## 常用事件标志
+
+表格
+
+| 标志         | 含义                                                                              |
+| ------------ | --------------------------------------------------------------------------------- |
+| EPOLLIN      | 可读事件                                                                          |
+| EPOLLOUT     | 可写事件                                                                          |
+| EPOLLET      | 开启边缘触发 ET                                                                   |
+| EPOLLONESHOT | 只触发一次，触发后内核自动把该 fd 从监听列表移除，适合多线程处理 fd，防止并发争抢 |
+
 ### GMP 模型
 
 - G → 挂载到 P → P 绑定 M → M 执行 G。
@@ -415,6 +598,36 @@ go func() {
 
 ---
 
+````
+# fcntl 设置非阻塞Socket & ET+非阻塞原理笔记
+## setnonblock 函数实现
+```c
+int setnonblock(int fd) {
+    // 获取原有文件状态标志
+    int old_flg = fcntl(fd, F_GETFL);
+    // 追加 O_NONBLOCK 非阻塞标记
+    int new_flg = old_flg | O_NONBLOCK;
+    // 设置回fd
+    fcntl(fd, F_SETFL, new_flg);
+    return 0;
+}
+````
+
+- `fcntl(fd, F_GETFL)`：获取当前 Socket 文件属性
+- `O_NONBLOCK`：非阻塞模式标志
+
+## 阻塞 read vs 非阻塞 read
+
+- 阻塞 read：没有数据时，线程卡住不动；**一个连接占一个线程**
+- 非阻塞 read：没有数据直接返回 `-1`，errno = `EAGAIN`；线程不会卡住
+
+## 为什么 ET（边缘触发）必须搭配非阻塞 IO？
+
+1. ET 只会在状态变化时触发一次通知
+2. 如果缓冲区还有剩余数据，不会再次触发事件
+3. 需要循环调用 read，一直读到返回 `EAGAIN`，清空缓冲区
+4. 如果用阻塞 read，读到最后一块数据后，read 会阻塞挂起整个线程，程序卡死
+
 ## 四、Channel
 
 ### CSP 并发模型
@@ -466,15 +679,15 @@ default:
 - 底层 hchan 结构体：recvq 接收协程等待队列、sendq 发送协程等待队列。
 - 无缓冲 chan 数据不落地存储，只在两个协程之间拷贝。
 
-| 成员 | 含义 |
-|---|---|
-| 缓冲数组 | 仅有缓冲 channel 存在；无缓冲 channel 该字段为 nil |
-| send waitq | 发送协程等待队列，保存阻塞等待发送的 G 链表 |
-| recv waitq | 接收协程等待队列，保存阻塞等待接收的 G 链表 |
-| waitq | 等待队列，挂载被阻塞的 goroutine |
-| uint32 计数 | 引用/元素计数 |
-| elemType | channel 里面存放元素的类型 |
-| close | 通道关闭标记 |
+| 成员        | 含义                                               |
+| ----------- | -------------------------------------------------- |
+| 缓冲数组    | 仅有缓冲 channel 存在；无缓冲 channel 该字段为 nil |
+| send waitq  | 发送协程等待队列，保存阻塞等待发送的 G 链表        |
+| recv waitq  | 接收协程等待队列，保存阻塞等待接收的 G 链表        |
+| waitq       | 等待队列，挂载被阻塞的 goroutine                   |
+| uint32 计数 | 引用/元素计数                                      |
+| elemType    | channel 里面存放元素的类型                         |
+| close       | 通道关闭标记                                       |
 
 ### 缓冲区环形队列
 
@@ -753,11 +966,11 @@ Thread cache  Thread cache  Thread cache
      page   heap
 ```
 
-| 级别 | 大小 |
-|---|---|
-| 微对象 | < 16B |
+| 级别   | 大小       |
+| ------ | ---------- |
+| 微对象 | < 16B      |
 | 小对象 | 16B ~ 32KB |
-| 大对象 | > 32KB |
+| 大对象 | > 32KB     |
 
 ### 内存管理组件
 
@@ -775,8 +988,8 @@ Thread cache  Thread cache  Thread cache
 ### spans / bitmap / arena
 
 | spans | bitmap | arena |
-| --- | --- | --- |
-| 512MB | 16GB | 512GB |
+| ----- | ------ | ----- |
+| 512MB | 16GB   | 512GB |
 
 - spans 存储指向 runtime.mspan 指针，管理该片内存的管理单元 runtime.mspan。
 - bitmap 标记 arena 哪些地址保存对象，位图中的每个字节表示对应 64 的 2 个指针占用。
@@ -930,6 +1143,7 @@ db.Preload("...") // IN + 多条单表查询，批量查关联表数据，2 次 
 2. 重启丢失：本地缓存重启数据丢失；Redis 支持 RDB/AOF 持久化。
 3. OOM 风险：本地缓存膨胀占用进程内存；Redis 独立部署内存隔离。
 4. 额外：Redis 支持过期淘汰、分布式锁、计数器等；本地缓存分布式能力弱。
+
 - 缺点：Redis 要走网络 IO，比本地内存缓存慢。
 
 ### 布隆过滤器
@@ -976,6 +1190,7 @@ db.Preload("...") // IN + 多条单表查询，批量查关联表数据，2 次 
 1. 业务数据和消息记录同一个事务落库
 2. 独立轮询任务扫描消息表，把消息投递到 MQ
 3. 投递未确认则不断重试
+
 - 用来解决分布式事务，保证「业务完成消息一定发出」。
 
 ### RPC vs MQ
