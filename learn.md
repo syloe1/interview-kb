@@ -114,6 +114,7 @@ src/pages/Home.tsx
 - `Header` 是顶部固定区域
 - `Sidebar` 使用 `NavLink` 判断当前菜单是否激活
 - `Home` 从 `navigationItems` 循环生成首页分类卡片
+- `Home` 右上角「Current focus」栏里有一个「下载 tasks.json」按钮，它指向 `public/tasks.json`，不走 React 路由
 - `Link` 和 `NavLink` 都是前端路由跳转，不会刷新整个页面
 
 ### 第三步：数据和类型
@@ -231,6 +232,9 @@ src/lib/highlight.ts                      # 命中高亮（rehype 插件）
 ## 4. 目录职责速查
 
 ```text
+public/
+└── tasks.json                       # 上课用的 VSCode 任务配置，首页「下载 tasks.json」按钮直接链接到这里
+
 src/
 ├── main.tsx                         # React 入口
 ├── App.tsx                          # 集中注册所有路由
@@ -240,7 +244,7 @@ src/
 ├── lib/markdown.ts                  # Markdown 解析公共层：锚点、目录、按小节切分、标题/摘要提取
 ├── lib/highlight.ts                 # 把搜索命中的词包成 <mark> 的 rehype 插件
 ├── data/navigation.ts               # 导航和分类卡片数据
-├── data/knowledgeNotes.ts           # 知识 Markdown 的 glob + countNotes() 计数 + 分类显示名
+├── data/knowledgeNotes.ts           # 知识 Markdown 的 glob + 图片 URL 映射 + countNotes() 计数 + 分类显示名
 ├── data/projectNotes.ts             # 项目 Markdown 的懒加载 glob（不 eager）
 ├── data/searchIndex.ts              # 搜索索引：把笔记切成章节 + 匹配打分
 ├── data/projects.ts                 # Projects 元数据
@@ -250,7 +254,8 @@ src/
 │   └── project/                     # 项目卡片和项目区块
 ├── pages/                           # 路由页面
 ├── content/projects/*.md            # 项目正文
-├── content/knowledge/<分类>/*.md    # 知识正文，一个子目录对应一个分类
+├── content/knowledge/<分类>/**/*.md # 知识正文，分类下可以再分子目录
+├── content/knowledge/<分类>/**/*.png # 正文图片，和 Markdown 放在一起，构建时一起打包
 └── content/knowledge/interview/找工作.xls   # 投递记录表格，由 /applications 页面读取
 ```
 
@@ -324,6 +329,10 @@ src/content/knowledge/k8s/deployment.md
 ```text
 http://localhost:5173/#/k8s/deployment
 ```
+
+笔记可以放在分类目录下的多层子目录里，比如 `src/content/knowledge/cpp/cc/extension.md`。路由只取文件名，所以访问地址是 `#/cpp/extension`；中间的子目录只影响文件组织，分类页、搜索和详情页都会自动找到它（详情页按「分类前缀 + 文件名」匹配）。
+
+正文里的相对图片（`![说明](image.png)`）跟 Markdown 放在同一个目录即可。图片由 `data/knowledgeNotes.ts` 的 `knowledgeImages` 在构建时打包成 URL，`MarkdownRenderer` 通过 `sourcePath` 把相对路径解析过去。网络图片（`https://...`）不用处理。
 
 `八股` 页面还是空状态页面。虽然仓库中存在一些直接放在 `src/content/knowledge/` 根目录的 Markdown 文件，但当前通用分类加载器不会把它们自动归入这些分类。后续学习扩展时，建议使用下面的目录形式：
 
@@ -549,6 +558,29 @@ src/content/projects/你的项目名.md
 3. 刷新页面。
 4. 重启 `npm run dev`。
 5. 运行 `npm run build` 查看 TypeScript 错误。
+
+### 笔记里的图片显示不出来
+
+Markdown 是以字符串形式打包的，`![]()` 不会自动变成打包后的图片地址，靠 `MarkdownRenderer` 的 `sourcePath` 解析。排查：
+
+1. 图片和 Markdown 是否在同一个目录、文件名大小写是否一致（Linux 服务器区分大小写）。
+2. 是不是写成了 `/image.png` 这种根路径——根路径会被当成站点绝对路径，不会去查 `knowledgeImages`。
+3. `npm run build` 后看 `dist/assets/` 里有没有对应图片；没有就说明 glob 没匹配到，检查扩展名是否在 `knowledgeNotes.ts` 的 glob 列表里。
+4. 用子目录时，详情页 URL 仍然只有文件名（`#/cpp/extension`），不要手动拼子目录。
+
+### 首页「下载 tasks.json」点下去 404
+
+`public/` 里的文件不会被 Vite 改写，构建时原样复制到 `dist/` 根目录。所以：
+
+- 开发时地址是 `http://localhost:5173/tasks.json`。
+- 部署后地址是 `https://kb.syloe1.xyz/tasks.json`（换成你自己的域名）。
+- 按钮用的是 `${import.meta.env.BASE_URL}tasks.json`，`BASE_URL` 来自 `vite.config.ts` 的 `base: './'`，所以部署在子路径下也不会坏。
+
+排查顺序：
+
+1. 确认文件确实叫 `public/tasks.json`，不是 `src/public/`。
+2. 跑一次 `npm run build`，看 `dist/tasks.json` 有没有生成。
+3. 如果改完内容页面没变，是浏览器缓存了旧文件，`Ctrl + F5` 强制刷新。
 
 ### 分类里明明有笔记，首页卡片却显示 Coming soon
 

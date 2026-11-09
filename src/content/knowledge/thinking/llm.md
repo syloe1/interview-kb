@@ -1,3 +1,8 @@
+#### DL 视觉推理
+
+> cpp + yolo + opencv + 推理框架(NCNN ONNX Runtime)
+> Opencv做图像预处理 + ONNX/TensorRT推理引擎 > cpp
+
 # LLM / RAG / Agent / ToolCall 笔记
 
 LLM 有理解能力但没有记忆，需要靠驱动的函数、上下文窗口实现记忆。

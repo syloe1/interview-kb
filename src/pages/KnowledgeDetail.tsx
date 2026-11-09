@@ -17,14 +17,13 @@ function getModule(
 ): { path: string; markdown: string } | undefined {
   const normalizedCategory = category.toLowerCase();
   const normalizedNoteId = noteId.toLowerCase();
+  // 允许笔记放在分类下的任意子目录，例如 cpp/cc/extension.md。
+  // URL 仍然只用文件名（/cpp/extension），子目录只影响文件组织。
+  const categoryPrefix = `../content/knowledge/${normalizedCategory}/`;
 
   const match = Object.entries(knowledgeMarkdown).find(([path]) => {
-    const segments = path.split('/');
-    const fileName = segments.at(-1)?.replace(/\.md$/i, '').toLowerCase();
-    return (
-      segments.at(-2)?.toLowerCase() === normalizedCategory &&
-      fileName === normalizedNoteId
-    );
+    const fileName = path.split('/').at(-1)?.replace(/\.md$/i, '').toLowerCase();
+    return path.toLowerCase().startsWith(categoryPrefix) && fileName === normalizedNoteId;
   });
 
   return match ? { path: match[0], markdown: match[1] } : undefined;
@@ -105,7 +104,11 @@ export function KnowledgeDetail({ category }: KnowledgeDetailProps) {
             </span>
           </div>
           <div className="markdown-content">
-            <MarkdownRenderer markdown={source.markdown} highlight={highlightQuery} />
+            <MarkdownRenderer
+              markdown={source.markdown}
+              highlight={highlightQuery}
+              sourcePath={source.path}
+            />
           </div>
         </article>
 

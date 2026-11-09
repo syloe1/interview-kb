@@ -3,6 +3,7 @@ import {
   BookOpen,
   CheckCircle2,
   Clock3,
+  Download,
   FileSpreadsheet,
   LibraryBig,
 } from 'lucide-react';
@@ -63,6 +64,14 @@ export function Home() {
               <br />
               systems foundation.
             </p>
+            <a
+              href={`${import.meta.env.BASE_URL}tasks.json`}
+              download="tasks.json"
+              className="mt-4 inline-flex items-center gap-1.5 rounded-md border border-[var(--border)] px-2.5 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition-colors hover:border-[var(--border-active)] hover:text-[var(--accent)]"
+            >
+              <Download size={13} aria-hidden="true" />
+              下载 tasks.json
+            </a>
           </div>
         </div>
       </section>

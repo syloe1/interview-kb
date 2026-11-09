@@ -9,6 +9,19 @@ export const knowledgeMarkdown = import.meta.glob<string>(
   }
 );
 
+// 知识笔记里引用的本地图片，键统一去掉开头的 '../'，例如
+// 'content/knowledge/cpp/cc/image.png' -> Vite 打包后的图片 URL。
+// Markdown 正文是原样字符串，不会自动处理 ![](xxx.png)，需要这份映射手动解析。
+export const knowledgeImages: Record<string, string> = Object.fromEntries(
+  Object.entries(
+    import.meta.glob<string>('../content/knowledge/**/*.{png,jpg,jpeg,gif,webp,svg}', {
+      query: '?url',
+      import: 'default',
+      eager: true,
+    })
+  ).map(([path, url]) => [path.replace(/^\.\.\//, ''), url])
+);
+
 // 分类目录名 -> 页面显示名。分类页、详情页面包屑和搜索结果都用这一份，
 // 键统一小写，和目录名的大小写无关。
 export const categoryLabels: Record<string, string> = {

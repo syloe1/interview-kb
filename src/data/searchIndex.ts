@@ -161,12 +161,15 @@ function buildKnowledgeDocs(): SearchDoc[] {
   const docs: SearchDoc[] = [];
 
   for (const [path, markdown] of Object.entries(knowledgeMarkdown)) {
-    const segments = path.split('/');
-    const category = (segments.at(-2) ?? '').toLowerCase();
+    // 路径形如 ../content/knowledge/<分类>/<可能有多层子目录>/<文件名>.md。
+    // 分类取 knowledge/ 后的第一段，文件名取最后一段；中间的子目录只影响文件组织，
+    // 不进入路由，详情页按「分类 + 文件名」查找。
+    const relativeSegments = path.split('/').slice(3);
     // glob 是 **/*.md，理论上能匹配到直接放在 knowledge/ 根目录的文件。
     // 那种文件没有分类，也就没有路由，跳过。
-    if (!category || category === 'knowledge') continue;
+    if (relativeSegments.length < 2) continue;
 
+    const category = relativeSegments[0].toLowerCase();
     const fileName = getFileNameFromPath(path);
     const noteTitle = getNoteTitle(markdown, fileName);
     const route = `/${category}/${fileName.toLowerCase()}`;
