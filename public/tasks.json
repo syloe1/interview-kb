@@ -10,15 +10,23 @@
         "options": {
           "shell": {
             "executable": "cmd.exe",
-            "args": ["/c"]
+            "args": [
+              "/c"
+            ]
           }
         }
+      },
+      "presentation": {
+        "panel": "new",
+        "showReuseMessage": false
       },
       "group": {
         "kind": "build",
         "isDefault": true
       },
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     }
   ]
 }
