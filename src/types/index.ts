@@ -6,6 +6,7 @@ export interface NavigationItem {
   description: string; // 描述文字
   icon: NavIcon; // 图标标识
   countLabel: string; // 数量标签
+  hidden?: boolean; // 是否从导航和首页隐藏（路由仍然保留）
 }
 
 export interface Project {

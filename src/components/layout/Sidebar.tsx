@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import type { NavIcon } from '../../types';
-import { navigationItems } from '../../data/navigation';
+import { visibleNavigationItems } from '../../data/navigation';
 import { projects } from '../../data/projects';
 
 interface SidebarProps {
@@ -56,7 +56,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             Knowledge base
           </p>
           <nav className="space-y-1" aria-label="Primary navigation">
-            {navigationItems.map((item) => {
+            {visibleNavigationItems.map((item) => {
               const Icon = iconMap[item.icon];
               return (
                 <NavLink

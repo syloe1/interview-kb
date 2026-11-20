@@ -113,7 +113,8 @@ src/pages/Home.tsx
 - `Layout` 使用 `Outlet` 显示当前路由页面
 - `Header` 是顶部固定区域
 - `Sidebar` 使用 `NavLink` 判断当前菜单是否激活
-- `Home` 从 `navigationItems` 循环生成首页分类卡片
+- `Home` 从 `visibleNavigationItems` 循环生成首页分类卡片
+- `navigationItems` 里标了 `hidden: true` 的项不会出现在侧边栏、首页和页脚，但路由仍然保留（`/applications` 就是这种）
 - `Home` 右上角「Current focus」栏里有一个「下载 tasks.json」按钮，它指向 `public/tasks.json`，不走 React 路由
 - `Link` 和 `NavLink` 都是前端路由跳转，不会刷新整个页面
 
@@ -132,7 +133,7 @@ src/data/projects.ts
 - `interface` 如何描述对象结构
 - `Project` 如何保证项目数据字段完整
 - `NavIcon` 联合类型如何限制图标名称
-- `navigationItems` 如何同时驱动侧边栏和首页
+- `navigationItems` 是导航的原始数据，`visibleNavigationItems` 是过滤掉 `hidden` 项后的版本，侧边栏、首页和页脚都用后者
 - 为什么新增项目需要同时维护元数据和 Markdown 文件
 
 例如，Projects 的数据链路是：
@@ -243,7 +244,7 @@ src/
 ├── types/index.ts                   # 共享类型
 ├── lib/markdown.ts                  # Markdown 解析公共层：锚点、目录、按小节切分、标题/摘要提取
 ├── lib/highlight.ts                 # 把搜索命中的词包成 <mark> 的 rehype 插件
-├── data/navigation.ts               # 导航和分类卡片数据
+├── data/navigation.ts               # 导航和分类卡片数据（hidden: true 的项不出现在页面上）
 ├── data/knowledgeNotes.ts           # 知识 Markdown 的 glob + 图片 URL 映射 + countNotes() 计数 + 分类显示名
 ├── data/projectNotes.ts             # 项目 Markdown 的懒加载 glob（不 eager）
 ├── data/searchIndex.ts              # 搜索索引：把笔记切成章节 + 匹配打分
@@ -358,6 +359,8 @@ src/content/knowledge/fundamentals/*.md
 ### 投递情况：运行时解析 Excel
 
 `投递情况` 页（`/applications`）是第三种内容模型：**不在构建期转换，而是浏览器里现读 Excel**。
+
+这个页面默认从导航里隐藏：[src/data/navigation.ts](src/data/navigation.ts) 里对应项标了 `hidden: true`，`visibleNavigationItems` 会把它过滤掉，所以侧边栏、首页卡片和页脚都不显示。但**隐藏入口不等于隐藏数据**——路由 `/applications` 仍可直接访问，且 xls 作为静态资源打包进了 `dist`，部署后任何人都能按资源地址下载。如果内容确实敏感，要连路由和文件一起删。
 
 ```text
 src/content/knowledge/interview/找工作.xls
@@ -618,6 +621,12 @@ src/data/knowledgeNotes.ts              ← categoryLabels 的 key
 - **日期显示成 46273**：说明读到了原始序列号。确认 `sheet_to_json` 带着 `raw: false`。
 - **多出一行「秋招」这样的标题**：这是故意保留的合并单元格标题，不是 bug。
 - **表格没更新**：页面有模块级缓存，改完 xls 要刷新页面（`sheetPromise` 只在首次进入时创建）。
+
+### 想让某个分类从页面上消失
+
+在 `src/data/navigation.ts` 的对应项里加 `hidden: true` 即可，`visibleNavigationItems` 会自动过滤掉它。不要只在侧边栏删一行——侧边栏、首页、页脚是三处独立渲染。
+
+注意这只会隐藏入口，**路由和数据还在**。要彻底下架，还得删 `App.tsx` 里的路由、对应页面以及内容文件。
 
 ### 搜索结果点进去没定位到小节
 
