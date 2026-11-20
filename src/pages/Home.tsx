@@ -8,7 +8,7 @@ import {
   LibraryBig,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { navigationItems } from '../data/navigation';
+import { visibleNavigationItems } from '../data/navigation';
 import { BookmarkLinks } from '../components/common/BookmarkLinks';
 import { Card, CardContent, CardHeader } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
@@ -87,12 +87,12 @@ export function Home() {
             </h2>
           </div>
           <span className="hidden text-xs text-[var(--text-faint)] sm:block">
-            {navigationItems.length} sections · 1 active
+            {visibleNavigationItems.length} sections · 1 active
           </span>
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {navigationItems.map((item, index) => {
+          {visibleNavigationItems.map((item, index) => {
             const Icon = iconByLabel[item.label as keyof typeof iconByLabel];
             const isActive = index === 0;
             const isComingSoon = item.countLabel.toLowerCase().includes('coming');

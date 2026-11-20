@@ -1,13 +1,13 @@
 import { Link } from 'react-router-dom';
 import { Mail, ExternalLink } from 'lucide-react';
-import { navigationItems } from '../../data/navigation';
+import { visibleNavigationItems } from '../../data/navigation';
 import { projects } from '../../data/projects';
 
 export function Footer() {
   // 取前 5 个项目展示
   const featuredProjects = projects.slice(0, 5);
   // 取前 6 个分类展示
-  const featuredCategories = navigationItems.slice(0, 6);
+  const featuredCategories = visibleNavigationItems.slice(0, 6);
 
   return (
     <footer className="border-t border-[var(--border)] bg-[var(--footer-bg)]">

@@ -100,5 +100,9 @@ export const navigationItems: NavigationItem[] = [
     description: '秋招投递记录和每日进展，直接读取 Excel 渲染',
     icon: 'folder',
     countLabel: 'Excel',
+    hidden: true,
   },
 ];
+
+// 侧边栏、首页和页脚只展示未被隐藏的导航项；隐藏项的路由仍然可以直接访问。
+export const visibleNavigationItems = navigationItems.filter((item) => !item.hidden);
