@@ -36,6 +36,7 @@ export const categoryLabels: Record<string, string> = {
   thinking: '思考',
   python: 'Python',
   'qt-mcu': 'Qt / MCU',
+  retrospective: '复盘',
 };
 
 // 统计某个分类目录下的笔记数量，返回首页卡片要显示的标签

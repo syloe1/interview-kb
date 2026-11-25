@@ -9,6 +9,7 @@ export const navigationItems: NavigationItem[] = [
     description: '我的项目经历、架构设计和面试问题',
     icon: 'folder',
     countLabel: `${projects.length} projects`,
+    hidden: true,
   },
   {
     label: 'Go',
@@ -72,6 +73,13 @@ export const navigationItems: NavigationItem[] = [
     description: 'Linux 系统、命令和内核基础',
     icon: 'terminal',
     countLabel: countNotes('linux'),
+  },
+  {
+    label: '复盘',
+    path: '/retrospective',
+    description: '项目复盘：为什么做、怎么做、遇到的问题和解决方案',
+    icon: 'layers',
+    countLabel: countNotes('retrospective'),
   },
   {
     label: '思考',

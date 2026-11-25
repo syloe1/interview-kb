@@ -17,6 +17,7 @@ import { Linux } from './pages/Linux';
 import { Thinking } from './pages/Thinking';
 import { Python } from './pages/Python';
 import { QtMcu } from './pages/QtMcu';
+import { Retrospective } from './pages/Retrospective';
 import { Applications } from './pages/Applications';
 
 const ProjectDetail = lazy(() =>
@@ -81,6 +82,11 @@ function App() {
           <Route path="/python/:noteId" element={<KnowledgeDetail category="python" />} />
           <Route path="/qt-mcu" element={<QtMcu />} />
           <Route path="/qt-mcu/:noteId" element={<KnowledgeDetail category="qt-mcu" />} />
+          <Route path="/retrospective" element={<Retrospective />} />
+          <Route
+            path="/retrospective/:noteId"
+            element={<KnowledgeDetail category="retrospective" />}
+          />
           <Route path="/applications" element={<Applications />} />
           <Route path="/home" element={<Navigate to="/" replace />} />
           <Route path="*" element={<NotFound />} />

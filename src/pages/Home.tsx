@@ -5,6 +5,7 @@ import {
   Clock3,
   Download,
   FileSpreadsheet,
+  History,
   LibraryBig,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -28,6 +29,7 @@ const iconByLabel = {
   Python: Clock3,
   'Qt / MCU': Clock3,
   投递: FileSpreadsheet,
+  复盘: History,
 };
 
 export function Home() {
@@ -87,14 +89,14 @@ export function Home() {
             </h2>
           </div>
           <span className="hidden text-xs text-[var(--text-faint)] sm:block">
-            {visibleNavigationItems.length} sections · 1 active
+            {visibleNavigationItems.length} sections
           </span>
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {visibleNavigationItems.map((item, index) => {
+          {visibleNavigationItems.map((item) => {
             const Icon = iconByLabel[item.label as keyof typeof iconByLabel];
-            const isActive = index === 0;
+            const isActive = item.path === '/projects';
             const isComingSoon = item.countLabel.toLowerCase().includes('coming');
 
             return (

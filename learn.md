@@ -114,7 +114,7 @@ src/pages/Home.tsx
 - `Header` 是顶部固定区域
 - `Sidebar` 使用 `NavLink` 判断当前菜单是否激活
 - `Home` 从 `visibleNavigationItems` 循环生成首页分类卡片
-- `navigationItems` 里标了 `hidden: true` 的项不会出现在侧边栏、首页和页脚，但路由仍然保留（`/applications` 就是这种）
+- `navigationItems` 里标了 `hidden: true` 的项不会出现在侧边栏、首页和页脚，但路由仍然保留（`Projects` 和 `/applications` 现在都是这种）
 - `Home` 右上角「Current focus」栏里有一个「下载 tasks.json」按钮，它指向 `public/tasks.json`，不走 React 路由
 - `Link` 和 `NavLink` 都是前端路由跳转，不会刷新整个页面
 
@@ -317,6 +317,7 @@ src/content/knowledge/linux/
 src/content/knowledge/thinking/
 src/content/knowledge/python/
 src/content/knowledge/qt-mcu/
+src/content/knowledge/retrospective/
 ```
 
 例如：
@@ -354,7 +355,23 @@ src/content/knowledge/fundamentals/*.md
 
 注意第 6 步容易漏：首页图标是按导航项的 `label` 查表的，联合类型不会拦住漏配的 key。
 
+另外，`navigationItems` 里标 `hidden: true` 的项（目前是 `Projects` 和「投递」）会被 `visibleNavigationItems` 过滤，不显示在页面上，但路由不受影响。
+
 导航项的 `countLabel` 不用手写。[src/data/navigation.ts](src/data/navigation.ts) 里写的是 `countNotes('qt-mcu')`，这个函数在 [src/data/knowledgeNotes.ts](src/data/knowledgeNotes.ts)：扫一遍 `src/content/knowledge/` 下的 Markdown，数出该分类目录里有多少篇，返回 `3 notes` 这种标签；目录不存在或没有 `.md` 时返回 `Coming soon`。首页卡片就是靠标签里有没有 `coming` 这个词来决定徽章颜色的，所以**加完笔记不用再去改数字**。
+
+### 复盘：项目复盘
+
+`src/content/knowledge/retrospective/` 放项目复盘，访问 `#/retrospective`。它和上面的知识分类完全共用一套加载器，新增一篇复盘不需要改代码，放进目录就会自动出现在列表里。
+
+随仓库带的 `template.md` 是写作模板，固定三节：
+
+```text
+## 为什么做
+## 怎么做
+## 遇到的问题和解决方案
+```
+
+用项目名复制一份新文件即可，比如 `src/content/knowledge/retrospective/interview-kb.md`。
 
 ### 投递情况：运行时解析 Excel
 
